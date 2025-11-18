@@ -1,4 +1,9 @@
 import styled from 'styled-components'
+import toklyLogo from '../assets/tokly11.svg'
+
+type HeaderProps = {
+  onAddClick: () => void
+}
 
 const HeaderContainer = styled.header`
   display: flex;
@@ -7,12 +12,10 @@ const HeaderContainer = styled.header`
   width: 100%;
 `
 
-const Logo = styled.div`
-  color: #ffffff;
-  font-size: 40px;
-  font-family: 'Inter', sans-serif;
-  font-weight: 400;
-  word-wrap: break-word;
+const Logo = styled.img`
+  height: 50px;
+  width: auto;
+  display: block;
 `
 
 const AddButton = styled.button`
@@ -50,11 +53,13 @@ const AddButton = styled.button`
   }
 `
 
-export const Header = () => {
+export const Header = ({ onAddClick }: HeaderProps) => {
   return (
     <HeaderContainer>
-      <Logo>Tokly</Logo>
-      <AddButton type="button">добавить</AddButton>
+      <Logo src={toklyLogo} alt="Tokly" />
+      <AddButton type="button" onClick={onAddClick}>
+        добавить
+      </AddButton>
     </HeaderContainer>
   )
 }
