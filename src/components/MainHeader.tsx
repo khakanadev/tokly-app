@@ -6,6 +6,7 @@ import pencilIcon from '../assets/Edit Pencil.svg'
 export type Lap = {
   id: string
   label: string
+  have_problems?: boolean
 }
 
 type MainHeaderProps = {
@@ -112,14 +113,14 @@ const LapInfo = styled.div`
   box-sizing: border-box;
 `
 
-const Status = styled.div`
+const Status = styled.div<{ $bgColor?: string; $borderColor?: string }>`
   width: 147px;
   height: 53px;
   min-height: 53px;
   max-height: 53px;
   border-radius: 15px;
-  background: #FFF5C7;
-  border: 3px solid #FFDC34;
+  background: ${({ $bgColor }) => $bgColor || '#FFF5C7'};
+  border: 3px solid ${({ $borderColor }) => $borderColor || '#FFDC34'};
   margin-left: 20px;
   display: flex;
   align-items: center;
@@ -404,20 +405,32 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
             <EmptyState>Добавьте линию электропередачи</EmptyState>
           ) : (
             <RowsContainer>
-              {currentLaps.map((lap, index) => (
-                <Row key={lap.id}>
-                  <RowButton type="button" onClick={() => handleSelect(index)}>
-                    <LapInfo>ЛЭП № {lap.label}</LapInfo>
-                    <Status>статус</Status>
-                  </RowButton>
-                  <DeleteButton type="button" onClick={() => handleDelete(index)}>
-                    <Icon src={trashIcon} alt="Удалить" />
-                  </DeleteButton>
-                  <EditButton type="button" onClick={() => handleEdit(index)}>
-                    <Icon src={pencilIcon} alt="Редактировать" />
-                  </EditButton>
-                </Row>
-              ))}
+              {currentLaps.map((lap, index) => {
+                const getStatusColors = () => {
+                  if (lap.have_problems === false) {
+                    return { bg: '#DE6F6D', border: '#C85A58' } // красный
+                  }
+                  // Если true или undefined - желтая подложка (как была)
+                  return { bg: '#FFF5C7', border: '#FFDC34' } // желтый
+                }
+                const colors = getStatusColors()
+                return (
+                  <Row key={lap.id}>
+                    <RowButton type="button" onClick={() => handleSelect(index)}>
+                      <LapInfo>ЛЭП № {lap.label}</LapInfo>
+                      <Status $bgColor={colors.bg} $borderColor={colors.border}>
+                        {lap.have_problems === false ? 'не норма' : lap.have_problems === true ? 'норма' : 'статус'}
+                      </Status>
+                    </RowButton>
+                    <DeleteButton type="button" onClick={() => handleDelete(index)}>
+                      <Icon src={trashIcon} alt="Удалить" />
+                    </DeleteButton>
+                    <EditButton type="button" onClick={() => handleEdit(index)}>
+                      <Icon src={pencilIcon} alt="Редактировать" />
+                    </EditButton>
+                  </Row>
+                )
+              })}
               {Array.from({ length: itemsPerPage - currentLaps.length }).map((_, index) => (
                 <Row key={`placeholder-${index}`} style={{ visibility: 'hidden', pointerEvents: 'none' }}>
                   <LapInfo>ЛЭП № </LapInfo>

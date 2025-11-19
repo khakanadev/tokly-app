@@ -7,8 +7,23 @@ export type Group = {
   create_at: string
 }
 
+export type LapData = {
+  have_problems?: boolean
+  groups?: Group[]
+} | Group[]
+
 export type LapsResponse = {
-  [lapId: string]: Group[]
+  [lapId: string]: LapData
+}
+
+export function getGroupsFromLapData(lapData: LapData): Group[] {
+  if (Array.isArray(lapData)) {
+    return lapData
+  }
+  if (lapData && typeof lapData === 'object' && 'groups' in lapData) {
+    return lapData.groups || []
+  }
+  return []
 }
 
 export type CreateGroupResponse = {
@@ -115,7 +130,8 @@ export async function getLaps(): Promise<LapsResponse> {
     console.log('[API] Laps fetched successfully:', data)
     console.log('[API] Total LEPs:', Object.keys(data).length)
     Object.keys(data).forEach((lapId) => {
-      console.log(`[API] LEP ${lapId}: ${data[lapId].length} groups`)
+      const groups = getGroupsFromLapData(data[lapId])
+      console.log(`[API] LEP ${lapId}: ${groups.length} groups`)
     })
     return data
   } catch (error) {

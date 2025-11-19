@@ -6,7 +6,7 @@ import { Header } from './components/Header'
 import { MainHeader, type Lap } from './components/MainHeader'
 import { AddLapModal } from './components/AddLapModal'
 import { UploadDropzone } from './components/UploadDropzone'
-import { createGroup, deleteGroup, getLaps, type LapsResponse } from './services/api'
+import { createGroup, deleteGroup, getLaps, type LapsResponse, type Group, getGroupsFromLapData } from './services/api'
 
 const Page = styled.div`
   min-height: 100vh;
@@ -243,11 +243,23 @@ const transformLapsData = (data: LapsResponse): Lap[] => {
   console.log('[transformLapsData] Full data structure:', data)
   
   const transformed = lapIds.map((lapId) => {
-    const groups = data[lapId]
-    console.log(`[transformLapsData] LEP ${lapId} has ${groups.length} groups:`, groups)
+    const lapData = data[lapId]
+    let have_problems: boolean | undefined
+    let groups: Group[] = []
+    
+    // Проверяем, является ли значение массивом (старая структура) или объектом (новая структура)
+    if (Array.isArray(lapData)) {
+      groups = lapData
+    } else if (lapData && typeof lapData === 'object' && 'have_problems' in lapData) {
+      have_problems = lapData.have_problems
+      groups = lapData.groups || []
+    }
+    
+    console.log(`[transformLapsData] LEP ${lapId} has ${groups.length} groups, have_problems: ${have_problems}`)
     return {
       id: lapId,
       label: lapId,
+      have_problems,
     }
   })
   
@@ -482,7 +494,7 @@ function App() {
       console.log('[App] Deleting groups for LEP:', lapToDelete.id)
       
       const data = await getLaps()
-      const groupsForLap = data[lapToDelete.id] || []
+      const groupsForLap = getGroupsFromLapData(data[lapToDelete.id] || [])
       
       if (groupsForLap.length === 0) {
         console.log('[App] No groups found for LEP')
