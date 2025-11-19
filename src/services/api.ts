@@ -48,6 +48,7 @@ export async function createGroup(lapId: string): Promise<number> {
             errorJson = JSON.parse(errorText)
             console.error('[API] Error response JSON:', errorJson)
           } catch {
+            void 0
           }
         }
       } catch (e) {
@@ -99,6 +100,7 @@ export async function getLaps(): Promise<LapsResponse> {
             errorJson = JSON.parse(errorText)
             console.error('[API] Error response JSON:', errorJson)
           } catch {
+            void 0
           }
         }
       } catch (e) {
@@ -122,6 +124,60 @@ export async function getLaps(): Promise<LapsResponse> {
       throw error
     }
     throw new Error(`Failed to fetch laps: ${String(error)}`)
+  }
+}
+
+export async function deleteGroup(groupId: number): Promise<void> {
+  const url = `${API_BASE_URL}/groups/delete?id=${groupId}`
+  
+  console.log('[API] Deleting group:', {
+    method: 'DELETE',
+    url,
+    groupId,
+  })
+
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    console.log('[API] Response status:', response.status, response.statusText)
+    console.log('[API] Response headers:', Object.fromEntries(response.headers.entries()))
+
+    if (!response.ok) {
+      let errorText = ''
+      let errorJson = null
+      
+      try {
+        errorText = await response.text()
+        console.error('[API] Error response text:', errorText)
+        
+        if (errorText) {
+          try {
+            errorJson = JSON.parse(errorText)
+            console.error('[API] Error response JSON:', errorJson)
+          } catch {
+            void 0
+          }
+        }
+      } catch (e) {
+        console.error('[API] Failed to read error response:', e)
+      }
+      
+      const errorMessage = errorJson?.message || errorText || response.statusText
+      throw new Error(`Failed to delete group (${response.status}): ${errorMessage}`)
+    }
+
+    console.log('[API] Group deleted successfully')
+  } catch (error) {
+    console.error('[API] Failed to delete group:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error(`Failed to delete group: ${String(error)}`)
   }
 }
 

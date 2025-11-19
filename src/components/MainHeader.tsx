@@ -26,7 +26,7 @@ const MainHeaderWrapper = styled.section`
 
 const SequencePanel = styled.div`
   width: 64px;
-  min-height: 647px;
+  min-height: 872px;
   border-radius: 15px;
   background: #0E0C0A;
   flex-shrink: 0;
@@ -53,7 +53,7 @@ const SequenceItem = styled.div`
 
 const TablePanel = styled.div`
   flex: 1;
-  min-height: 647px;
+  min-height: 872px;
   border-radius: 15px;
   background: #0E0C0A;
   padding: 24px 24px 24px 24px;
@@ -67,6 +67,7 @@ const RowsContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 38px;
+  min-height: 872px;
 `
 
 const Row = styled.div`
@@ -94,6 +95,8 @@ const RowButton = styled.button`
 const LapInfo = styled.div`
   width: 862px;
   height: 53px;
+  min-height: 53px;
+  max-height: 53px;
   border-radius: 15px;
   background: #ffffff;
   display: flex;
@@ -104,11 +107,16 @@ const LapInfo = styled.div`
   font-weight: 300;
   color: black;
   word-wrap: break-word;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 `
 
 const Status = styled.div`
   width: 147px;
   height: 53px;
+  min-height: 53px;
+  max-height: 53px;
   border-radius: 15px;
   background: #FFF5C7;
   border: 3px solid #FFDC34;
@@ -121,6 +129,9 @@ const Status = styled.div`
   font-family: 'Inter', sans-serif;
   font-weight: 300;
   word-wrap: break-word;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 `
 
 const IconButton = styled.button`
@@ -382,6 +393,11 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
           {currentLaps.map((_, index) => (
             <SequenceItem key={startIndex + index}>{startIndex + index + 1}</SequenceItem>
           ))}
+          {Array.from({ length: itemsPerPage - currentLaps.length }).map((_, index) => (
+            <SequenceItem key={`placeholder-${index}`} style={{ visibility: 'hidden', pointerEvents: 'none' }}>
+              {startIndex + currentLaps.length + index + 1}
+            </SequenceItem>
+          ))}
         </SequencePanel>
         <TablePanel>
           {laps.length === 0 ? (
@@ -400,6 +416,12 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
                   <EditButton type="button" onClick={() => handleEdit(index)}>
                     <Icon src={pencilIcon} alt="Редактировать" />
                   </EditButton>
+                </Row>
+              ))}
+              {Array.from({ length: itemsPerPage - currentLaps.length }).map((_, index) => (
+                <Row key={`placeholder-${index}`} style={{ visibility: 'hidden', pointerEvents: 'none' }}>
+                  <LapInfo>ЛЭП № </LapInfo>
+                  <Status>статус</Status>
                 </Row>
               ))}
             </RowsContainer>

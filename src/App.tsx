@@ -6,7 +6,7 @@ import { Header } from './components/Header'
 import { MainHeader, type Lap } from './components/MainHeader'
 import { AddLapModal } from './components/AddLapModal'
 import { UploadDropzone } from './components/UploadDropzone'
-import { createGroup, getLaps, type LapsResponse } from './services/api'
+import { createGroup, deleteGroup, getLaps, type LapsResponse } from './services/api'
 
 const Page = styled.div`
   min-height: 100vh;
@@ -462,7 +462,12 @@ function App() {
     }
   }
 
-  const handleDeleteLap = (index: number) => {
+  const handleDeleteLap = async (index: number) => {
+    const lapToDelete = laps[index]
+    if (!lapToDelete) {
+      return
+    }
+
     setLaps((prev) => {
       const newLaps = prev.filter((_, i) => i !== index)
       const itemsPerPage = 10
@@ -472,6 +477,50 @@ function App() {
       }
       return newLaps
     })
+
+    try {
+      console.log('[App] Deleting groups for LEP:', lapToDelete.id)
+      
+      const data = await getLaps()
+      const groupsForLap = data[lapToDelete.id] || []
+      
+      if (groupsForLap.length === 0) {
+        console.log('[App] No groups found for LEP')
+        return
+      }
+
+      console.log('[App] Found', groupsForLap.length, 'groups to delete')
+      
+      await Promise.all(
+        groupsForLap.map((group) =>
+          deleteGroup(group.id).catch((error) => {
+            console.error('[App] Failed to delete group:', group.id, error)
+            throw error
+          })
+        )
+      )
+
+      const updatedData = await getLaps()
+      const transformedLaps = transformLapsData(updatedData)
+      setLaps(transformedLaps)
+
+      const itemsPerPage = 10
+      const newTotalPages = Math.ceil(transformedLaps.length / itemsPerPage)
+      if (currentPage > newTotalPages && newTotalPages > 0) {
+        setCurrentPage(newTotalPages)
+      }
+
+      console.log('[App] Groups deletion completed successfully')
+    } catch (error) {
+      console.error('[App] Failed to delete groups:', error)
+      
+      const data = await getLaps()
+      const transformedLaps = transformLapsData(data)
+      setLaps(transformedLaps)
+
+      const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка'
+      alert(`Не удалось удалить группу: ${errorMessage}\n\nПроверьте, что сервер доступен и попробуйте еще раз.`)
+    }
   }
 
   const handleEditLap = (index: number) => {
