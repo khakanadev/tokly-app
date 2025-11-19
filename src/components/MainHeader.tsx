@@ -194,10 +194,10 @@ const ActivePageFill = styled.div<{ $left: number; $right: number; $isFirst: boo
   z-index: 0;
   transition: left 300ms ease, right 300ms ease, border-radius 300ms ease;
   border-radius: ${({ $isFirst, $isLast }) => {
-    if ($isFirst && $isLast) return '45px' // Если только одна страница
-    if ($isFirst) return '45px 10px 10px 45px' // До левого края
-    if ($isLast) return '10px 45px 45px 10px' // До правого края
-    return '10px' // Обычная квадратная форма
+    if ($isFirst && $isLast) return '45px'
+    if ($isFirst) return '45px 10px 10px 45px'
+    if ($isLast) return '10px 45px 45px 10px'
+    return '10px'
   }};
 `
 
@@ -272,7 +272,6 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
   const handleDelete = (localIndex: number) => {
     const globalIndex = startIndex + localIndex
     onDelete(globalIndex)
-    // Если удалили последний элемент на странице и страница не первая, переходим на предыдущую
     if (currentLaps.length === 1 && currentPage > 1) {
       onPageChange(currentPage - 1)
     }
@@ -294,17 +293,13 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
       return Array.from({ length: totalPages }, (_, i) => i + 1)
     }
 
-    // Если больше 10 страниц, используем динамическую логику
     const pages: (number | string)[] = []
 
     if (currentPage <= 4) {
-      // В начале: показываем первые 4, многоточие, последние 4
       pages.push(1, 2, 3, 4, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
     } else if (currentPage >= totalPages - 3) {
-      // В конце: показываем первые 4, многоточие, последние 4
       pages.push(1, 2, 3, 4, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
     } else {
-      // В середине: показываем первую, многоточие, текущую и соседние, многоточие, последнюю
       pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages)
     }
 
@@ -323,7 +318,6 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
     }
   }
 
-  // Вычисляем позицию заливки для активной страницы
   useEffect(() => {
     const updateFillPosition = () => {
       if (paginationRef.current) {
@@ -334,18 +328,13 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
           const containerRect = container.getBoundingClientRect()
           const buttonRect = activeButton.getBoundingClientRect()
           
-          // Вычисляем позиции относительно контейнера
           const buttonLeft = buttonRect.left - containerRect.left
           const buttonWidth = buttonRect.width
           const buttonRight = containerRect.width - (buttonLeft + buttonWidth)
           
-          // Округляем для точности пикселей
           const left = Math.round(buttonLeft)
           const right = Math.round(buttonRight)
           
-          // Если первая страница, заливка до левого края (0)
-          // Если последняя страница, заливка до правого края (0)
-          // Иначе только до краев кнопки
           if (currentPage === 1) {
             setFillLeft(0)
             setFillRight(right)
@@ -360,7 +349,6 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
       }
     }
     
-    // Используем requestAnimationFrame для более точного обновления после рендера
     let rafId: number
     let timeoutId: NodeJS.Timeout
     
@@ -380,7 +368,6 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
     }
   }, [currentPage, totalPages])
 
-  // SVG стрелка вправо
   const arrowSvg = (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M8 5L15 11L8 17" stroke="#5a5854" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

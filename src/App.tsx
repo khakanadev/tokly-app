@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { GlobalStyle } from './styles/GlobalStyles'
@@ -6,6 +6,7 @@ import { Header } from './components/Header'
 import { MainHeader, type Lap } from './components/MainHeader'
 import { AddLapModal } from './components/AddLapModal'
 import { UploadDropzone } from './components/UploadDropzone'
+import { createGroup, getLaps, type LapsResponse } from './services/api'
 
 const Page = styled.div`
   min-height: 100vh;
@@ -236,18 +237,22 @@ const LegendText = styled.div`
   }
 `
 
-const generateUid = () => {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
-
-const generateMockLaps = (): Lap[] => {
-  return Array.from({ length: 110 }, (_, i) => ({
-    id: generateUid(),
-    label: String(i + 1),
-  }))
+const transformLapsData = (data: LapsResponse): Lap[] => {
+  const lapIds = Object.keys(data)
+  console.log('[transformLapsData] LEP IDs from server:', lapIds)
+  console.log('[transformLapsData] Full data structure:', data)
+  
+  const transformed = lapIds.map((lapId) => {
+    const groups = data[lapId]
+    console.log(`[transformLapsData] LEP ${lapId} has ${groups.length} groups:`, groups)
+    return {
+      id: lapId,
+      label: lapId,
+    }
+  })
+  
+  console.log('[transformLapsData] Transformed result:', transformed)
+  return transformed
 }
 
 type IssueStat = {
@@ -360,37 +365,106 @@ const LapDetailsRoute = ({ laps, onFilesDrop }: LapDetailsRouteProps) => {
 }
 
 function App() {
-  const [laps, setLaps] = useState<Lap[]>(generateMockLaps())
+  const [laps, setLaps] = useState<Lap[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const loadLaps = async () => {
+      try {
+        console.log('[App] Loading laps on mount...')
+        const data = await getLaps()
+        console.log('[App] Successfully loaded laps:', data)
+        const transformedLaps = transformLapsData(data)
+        setLaps(transformedLaps)
+        console.log('[App] Laps set in state:', transformedLaps.length, 'items')
+      } catch (error) {
+        console.error('[App] Failed to load laps:', error)
+        setLaps([])
+        if (error instanceof Error) {
+          console.error('[App] Error details:', error.message)
+        }
+      }
+    }
+
+    loadLaps()
+  }, [])
+
   const handleFilesDrop = (files: File[]) => {
-    // В реальном приложении здесь можно отправить файлы на сервер или инициировать обработку
     console.log('Dropped files:', files)
   }
 
-  const handleAddLap = (label: string) => {
-    setLaps((prev) => {
-      const newLaps = [
-        ...prev,
-        {
-          id: generateUid(),
-          label,
-        },
-      ]
-      // Переключаемся на последнюю страницу, если добавили элемент
-      const itemsPerPage = 10
-      const newTotalPages = Math.ceil(newLaps.length / itemsPerPage)
-      setCurrentPage(newTotalPages)
-      return newLaps
-    })
-    setIsModalOpen(false)
+  const handleAddLap = async (lapId: string) => {
+    try {
+      console.log('[App] Creating group for LEP:', lapId)
+      
+      setLaps((prevLaps) => {
+        const exists = prevLaps.some((lap) => lap.id === lapId)
+        if (exists) {
+          console.log('[App] LEP already exists in list, will refresh from server')
+          return prevLaps
+        }
+        console.log('[App] Adding LEP optimistically to list:', lapId)
+        const newLap: Lap = {
+          id: lapId,
+          label: lapId,
+        }
+        return [...prevLaps, newLap]
+      })
+
+      setIsModalOpen(false)
+
+      const groupId = await createGroup(lapId)
+      console.log('[App] Group created with ID:', groupId)
+
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      console.log('[App] Refreshing laps list from server...')
+      try {
+        const data = await getLaps()
+        console.log('[App] Received data from server:', data)
+        
+        const transformedLaps = transformLapsData(data)
+        console.log('[App] Transformed laps:', transformedLaps)
+        console.log('[App] Previous laps count:', laps.length, 'New laps count:', transformedLaps.length)
+        
+        setLaps(transformedLaps)
+
+        const itemsPerPage = 10
+        const lapIndex = transformedLaps.findIndex((lap) => lap.id === lapId)
+        if (lapIndex >= 0) {
+          const targetPage = Math.floor(lapIndex / itemsPerPage) + 1
+          console.log('[App] Setting page to:', targetPage, 'for LEP at index', lapIndex)
+          setCurrentPage(targetPage)
+        } else {
+          const newTotalPages = Math.ceil(transformedLaps.length / itemsPerPage)
+          console.log('[App] Setting page to last page:', newTotalPages)
+          setCurrentPage(newTotalPages)
+        }
+
+        console.log('[App] Group creation completed successfully')
+      } catch (refreshError) {
+        console.error('[App] Failed to refresh laps after group creation:', refreshError)
+        console.warn('[App] Could not sync with server, but LEP is already in the list')
+      }
+    } catch (error) {
+      console.error('[App] Failed to create group:', error)
+      
+      setLaps((prevLaps) => {
+        const filtered = prevLaps.filter((lap) => lap.id !== lapId)
+        console.log('[App] Rolled back optimistic update, removed LEP:', lapId)
+        return filtered
+      })
+      
+      const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка'
+      alert(`Не удалось создать группу: ${errorMessage}\n\nПроверьте, что сервер доступен и попробуйте еще раз.`)
+    }
   }
 
   const handleDeleteLap = (index: number) => {
     setLaps((prev) => {
       const newLaps = prev.filter((_, i) => i !== index)
-      // Если текущая страница стала пустой, переключаемся на предыдущую
       const itemsPerPage = 10
       const newTotalPages = Math.ceil(newLaps.length / itemsPerPage)
       if (currentPage > newTotalPages && newTotalPages > 0) {
@@ -428,14 +502,14 @@ function App() {
               path="/"
               element={
                 <>
-                  <Header onAddClick={() => setIsModalOpen(true)} />
-                  <Content>
-                    <MainHeader
-                      laps={laps}
-                      onDelete={handleDeleteLap}
-                      onEdit={handleEditLap}
-                      currentPage={currentPage}
-                      onPageChange={setCurrentPage}
+          <Header onAddClick={() => setIsModalOpen(true)} />
+          <Content>
+            <MainHeader 
+              laps={laps} 
+              onDelete={handleDeleteLap} 
+              onEdit={handleEditLap}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
                       onSelectLap={handleSelectLap}
                     />
                   </Content>

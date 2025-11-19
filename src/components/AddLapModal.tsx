@@ -99,7 +99,6 @@ export const AddLapModal = ({ isOpen, onClose, onSubmit }: AddLapModalProps) => 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value
-    // Разрешаем только цифры
     const numericValue = inputValue.replace(/[^0-9]/g, '')
     setValue(numericValue)
   }
