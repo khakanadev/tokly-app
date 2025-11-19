@@ -14,6 +14,7 @@ type MainHeaderProps = {
   onEdit: (index: number) => void
   currentPage: number
   onPageChange: (page: number) => void
+  onSelectLap?: (lap: Lap, globalIndex: number) => void
 }
 
 const MainHeaderWrapper = styled.section`
@@ -71,6 +72,23 @@ const RowsContainer = styled.div`
 const Row = styled.div`
   display: flex;
   align-items: center;
+  width: 100%;
+`
+
+const RowButton = styled.button`
+  display: flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  flex: 1;
+  gap: 0;
+
+  &:focus-visible {
+    outline: 2px solid #FFDC34;
+    border-radius: 15px;
+  }
 `
 
 const LapInfo = styled.div`
@@ -241,7 +259,7 @@ const ArrowButton = styled.button<{ $disabled?: boolean }>`
 `
 
 
-export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange }: MainHeaderProps) => {
+export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, onSelectLap }: MainHeaderProps) => {
   const itemsPerPage = 10
   const totalPages = Math.ceil(laps.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -263,6 +281,12 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange }
   const handleEdit = (localIndex: number) => {
     const globalIndex = startIndex + localIndex
     onEdit(globalIndex)
+  }
+
+  const handleSelect = (localIndex: number) => {
+    if (!onSelectLap) return
+    const globalIndex = startIndex + localIndex
+    onSelectLap(laps[globalIndex], globalIndex)
   }
 
   const getPageNumbers = (): (number | string)[] => {
@@ -379,8 +403,10 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange }
             <RowsContainer>
               {currentLaps.map((lap, index) => (
                 <Row key={lap.id}>
-                  <LapInfo>ЛЭП № {lap.label}</LapInfo>
-                  <Status>статус</Status>
+                  <RowButton type="button" onClick={() => handleSelect(index)}>
+                    <LapInfo>ЛЭП № {lap.label}</LapInfo>
+                    <Status>статус</Status>
+                  </RowButton>
                   <DeleteButton type="button" onClick={() => handleDelete(index)}>
                     <Icon src={trashIcon} alt="Удалить" />
                   </DeleteButton>
