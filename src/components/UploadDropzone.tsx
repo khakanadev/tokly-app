@@ -7,7 +7,7 @@ type UploadDropzoneProps = {
 
 const Dropzone = styled.div<{ $isActive: boolean }>`
   width: 100%;
-  min-height: 397px;
+  min-height: 794px;
   background: ${({ $isActive }) => ($isActive ? '#1A170F' : '#0E0C0A')};
   border-radius: 15px;
   border: 2px dashed ${({ $isActive }) => ($isActive ? '#FFE766' : '#FFDC34')};
@@ -25,25 +25,62 @@ const Dropzone = styled.div<{ $isActive: boolean }>`
     background: #1A170F;
     box-shadow: 0 0 16px rgba(255, 220, 52, 0.15);
   }
+  
+  @keyframes bounce {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
 `
 
 const UploadIcon = styled.div`
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: rgba(255, 220, 52, 0.15);
+  width: 120px;
+  height: 120px;
+  border-radius: 9999px;
+  background: rgba(255, 220, 52, 0.20);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffdc34;
+  transition: transform 300ms ease, background 300ms ease;
+  
+  svg {
+    transition: transform 300ms ease;
+  }
+  
+  ${Dropzone}:hover & {
+    transform: scale(1.1);
+    background: rgba(255, 220, 52, 0.30);
+    
+    svg {
+      animation: bounce 1s ease-in-out infinite;
+    }
+  }
 `
 
-const UploadText = styled.p`
-  margin: 0;
-  font-size: 20px;
-  font-family: 'Inter', sans-serif;
+const UploadText = styled.div`
+  width: 100%;
+  height: 100%;
+  color: white;
+  font-size: 40px;
+  font-family: 'Nunito', sans-serif;
   font-weight: 400;
+  word-wrap: break-word;
+  text-align: center;
+`
+
+const UploadFormats = styled.div`
+  width: 100%;
+  height: 100%;
   color: #cac8c6;
+  font-size: 32px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 400;
+  word-wrap: break-word;
+  text-align: center;
 `
 
 const HiddenInput = styled.input`
@@ -110,9 +147,8 @@ export const UploadDropzone = ({ onFilesDrop }: UploadDropzoneProps) => {
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <UploadText>загрузить фото</UploadText>
         <UploadIcon>
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M12 16V4M12 4L7 9M12 4L17 9"
               stroke="#FFDC34"
@@ -129,6 +165,8 @@ export const UploadDropzone = ({ onFilesDrop }: UploadDropzoneProps) => {
             />
           </svg>
         </UploadIcon>
+        <UploadText>Загрузить фото</UploadText>
+        <UploadFormats>(png, jpeg, jpg, gif, webp, bmp, tiff)</UploadFormats>
       </Dropzone>
       <HiddenInput ref={inputRef} type="file" onChange={handleFileChange} multiple />
     </>

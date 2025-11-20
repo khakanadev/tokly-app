@@ -1,4 +1,4 @@
-export const API_BASE_URL = import.meta.env.DEV ? '/api' : 'http://100.88.60.130:8080'
+export const API_BASE_URL = import.meta.env.DEV ? '/api' : 'http://91.109.146.20:8080'
 
 console.log('[API] Base URL:', API_BASE_URL, '(DEV:', import.meta.env.DEV, ')')
 
@@ -40,15 +40,6 @@ export async function detectPhoto(groupId: string | number, file: File): Promise
   const url = `${API_BASE_URL}/detect?group_id=${encodeURIComponent(groupId)}`
   const requestContentType = file.type || 'application/octet-stream'
 
-  console.log('[API] Detect photo request:', {
-    method: 'POST',
-    url,
-    groupId,
-    fileName: file.name,
-    fileType: file.type,
-    fileSize: file.size,
-  })
-
   try {
     const response: Response = await fetch(url, {
       method: 'POST',
@@ -57,9 +48,6 @@ export async function detectPhoto(groupId: string | number, file: File): Promise
       },
       body: file,
     })
-
-    console.log('[API] Detect response status:', response.status, response.statusText)
-    console.log('[API] Detect response headers:', Object.fromEntries(response.headers.entries()))
 
     if (!response.ok) {
       let errorText = ''
@@ -89,7 +77,6 @@ export async function detectPhoto(groupId: string | number, file: File): Promise
     const rawBody = await response.text()
 
     if (!rawBody.trim()) {
-      console.warn('[API] Detect photo response body is empty, assuming success')
       return { group_id: typeof groupId === 'number' ? groupId : Number.parseInt(String(groupId), 10) }
     }
 
@@ -119,12 +106,6 @@ export async function detectPhoto(groupId: string | number, file: File): Promise
 
 export async function createGroup(lapId: string): Promise<number> {
   const url = `${API_BASE_URL}/groups/create?lap_id=${lapId}`
-  
-  console.log('[API] Creating group:', {
-    method: 'POST',
-    url,
-    lapId,
-  })
 
   try {
     const response = await fetch(url, {
@@ -133,9 +114,6 @@ export async function createGroup(lapId: string): Promise<number> {
         'Content-Type': 'application/json',
       },
     })
-
-    console.log('[API] Response status:', response.status, response.statusText)
-    console.log('[API] Response headers:', Object.fromEntries(response.headers.entries()))
 
     if (!response.ok) {
       let errorText = ''
@@ -162,7 +140,6 @@ export async function createGroup(lapId: string): Promise<number> {
     }
 
     const data: CreateGroupResponse = await response.json()
-    console.log('[API] Group created successfully:', data)
     return data.id
   } catch (error) {
     console.error('[API] Failed to create group:', error)

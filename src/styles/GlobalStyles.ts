@@ -2,6 +2,7 @@ import { createGlobalStyle } from 'styled-components'
 
 export const GlobalStyle = createGlobalStyle`
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400&display=swap');
 
   *, *::before, *::after {
     box-sizing: border-box;

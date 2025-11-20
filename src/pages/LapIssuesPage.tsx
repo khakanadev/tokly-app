@@ -91,7 +91,7 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
       navigate(`/line/${lap.id}`)
       return
     }
-    navigate('/')
+    navigate('/home')
   }
 
   const toggleSection = (sectionId: string) => {

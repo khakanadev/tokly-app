@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { GlobalStyle } from './styles/GlobalStyles'
 import { Page, Container } from './components/Layout'
 import { AddLapModal } from './components/AddLapModal'
+import { WelcomePage } from './pages/WelcomePage'
 import { HomePage } from './pages/HomePage'
 import { LapDetailsPage } from './pages/LapDetailsPage'
 import { LapIssuesPage } from './pages/LapIssuesPage'
@@ -175,8 +176,9 @@ function App() {
       <Page>
         <Container>
           <Routes>
+            <Route path="/" element={<WelcomePage />} />
             <Route
-              path="/"
+              path="/home"
               element={
                 <HomePage
                   laps={laps}
