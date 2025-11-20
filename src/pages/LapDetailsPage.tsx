@@ -5,7 +5,7 @@ import { Content } from '../components/Layout'
 import { Header } from '../components/Header'
 import { UploadDropzone } from '../components/UploadDropzone'
 import { type Lap } from '../components/MainHeader'
-import { detectPhoto } from '../services/api'
+import { createGroup, detectPhoto } from '../services/api'
 
 const DropzoneSection = styled.section`
   width: 100%;
@@ -20,6 +20,35 @@ const UploadStatusText = styled.p`
 
 const UploadErrorText = styled(UploadStatusText)`
   color: #de6f6d;
+`
+
+const ProgressWrapper = styled.div`
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`
+
+const ProgressTrack = styled.div`
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 220, 52, 0.2);
+  overflow: hidden;
+`
+
+const ProgressBar = styled.div<{ $value: number }>`
+  height: 100%;
+  border-radius: 999px;
+  background: #ffdc34;
+  width: ${({ $value }) => `${$value}%`};
+  transition: width 200ms ease;
+`
+
+const ProgressLabel = styled.span`
+  font-size: 13px;
+  color: #cac8c6;
+  font-family: 'Inter', sans-serif;
 `
 
 const RequestButton = styled.button`
@@ -275,6 +304,8 @@ export function LapDetailsPage({ laps }: LapDetailsPageProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [lastUploadedFile, setLastUploadedFile] = useState<string | null>(null)
 
   const handleOpenIssues = () => {
     if (!lap) {
@@ -292,14 +323,20 @@ export function LapDetailsPage({ laps }: LapDetailsPageProps) {
     setUploadError(null)
     setIsUploading(true)
     setUploadSuccess(false)
+    setUploadProgress(10)
+    setLastUploadedFile(file.name)
 
     try {
-      const testGroupId = '4'
-      await detectPhoto(testGroupId, file)
+      const groupId = await createGroup(lap.id)
+      setUploadProgress(55)
+
+      await detectPhoto(groupId, file)
+      setUploadProgress(100)
       setUploadSuccess(true)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Не удалось обработать фото'
       setUploadError(message)
+      setUploadProgress(0)
     } finally {
       setIsUploading(false)
     }
@@ -313,9 +350,23 @@ export function LapDetailsPage({ laps }: LapDetailsPageProps) {
       <Content>
         <DropzoneSection>
           <UploadDropzone onFilesDrop={handleFilesDrop} />
-          {isUploading && <UploadStatusText>Отправляем фото на обработку…</UploadStatusText>}
-          {uploadSuccess && !uploadError && <UploadStatusText>Фото успешно отправлено на обработку</UploadStatusText>}
+          {isUploading && <UploadStatusText>Создаём группу и отправляем фото…</UploadStatusText>}
+          {uploadSuccess && !uploadError && (
+            <UploadStatusText>
+              Фото {lastUploadedFile ? `«${lastUploadedFile}» ` : ''}успешно отправлено на обработку
+            </UploadStatusText>
+          )}
           {uploadError && <UploadErrorText>{uploadError}</UploadErrorText>}
+          {(isUploading || uploadProgress > 0) && (
+            <ProgressWrapper>
+              <ProgressLabel>
+                {uploadProgress < 50 ? 'Создаем группу…' : uploadProgress < 100 ? 'Отправляем фото…' : 'Готово'}
+              </ProgressLabel>
+              <ProgressTrack>
+                <ProgressBar $value={uploadProgress} />
+              </ProgressTrack>
+            </ProgressWrapper>
+          )}
         </DropzoneSection>
         <RequestButton type="button">Запросить бригаду</RequestButton>
         <StatsGrid>
