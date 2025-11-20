@@ -1,3 +1,5 @@
+import { useState, useRef, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import styled from 'styled-components'
 import toklyLogo from '../assets/tokly11.svg'
 
@@ -69,15 +71,19 @@ const AddButton = styled.button`
 const TitleWrapper = styled.div`
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  color: #CAC8C6;
-  font-family: 'Inter', sans-serif;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: white;
+  font-family: 'Nunito', sans-serif;
 `
 
 const Title = styled.span`
-  font-size: 32px;
-  font-weight: 500;
+  font-size: 40px;
+  font-weight: 400;
   line-height: 1.2;
+  color: white;
+  word-wrap: break-word;
 `
 
 const Subtitle = styled.span`
@@ -87,25 +93,25 @@ const Subtitle = styled.span`
   color: #9d9b97;
 `
 
-const BackButton = styled.button`
-  display: inline-flex;
+const BurgerButton = styled.button`
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 8px 16px;
-  border-radius: 12px;
-  border: 1px solid #FFDC34;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
   background-color: transparent;
-  color: #FFDC34;
-  font-size: 18px;
-  font-family: 'Inter', sans-serif;
-  font-weight: 400;
   cursor: pointer;
-  transition: background-color 220ms ease, color 220ms ease;
+  transition: transform 150ms ease, opacity 150ms ease;
   margin-right: 16px;
+  position: relative;
 
-  &:hover {
-    background-color: #FFDC34;
-    color: #0E0C0A;
+  &:active {
+    transform: scale(0.95);
+    opacity: 0.8;
   }
 
   &:focus-visible {
@@ -114,15 +120,181 @@ const BackButton = styled.button`
   }
 `
 
+const BurgerLine = styled.div<{ $isOpen: boolean; $position: 'first' | 'middle' | 'last' }>`
+  width: 28px;
+  height: 2px;
+  background-color: #FFDC34;
+  border-radius: 1px;
+  transition: transform 300ms ease, opacity 300ms ease;
+  position: absolute;
+  left: 50%;
+  transform-origin: center;
+  margin-left: -14px;
+
+  ${({ $isOpen, $position }) => {
+    if (!$isOpen) {
+      switch ($position) {
+        case 'first':
+          return 'top: 12px; transform: translateX(-50%) rotate(0); opacity: 1;'
+        case 'middle':
+          return 'top: 19px; transform: translateX(-50%) rotate(0); opacity: 1;'
+        case 'last':
+          return 'top: 26px; transform: translateX(-50%) rotate(0); opacity: 1;'
+        default:
+          return ''
+      }
+    }
+
+    switch ($position) {
+      case 'first':
+        return 'top: 19px; transform: translateX(-50%) rotate(45deg); opacity: 1;'
+      case 'middle':
+        return 'top: 19px; transform: translateX(-50%) rotate(0); opacity: 0;'
+      case 'last':
+        return 'top: 19px; transform: translateX(-50%) rotate(-45deg); opacity: 1;'
+      default:
+        return ''
+    }
+  }}
+`
+
+const DropdownMenu = styled.div<{ $isOpen: boolean }>`
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 0;
+  background: #1B1B1B;
+  border: 1px solid rgba(255, 220, 52, 0.2);
+  border-radius: 8px;
+  padding: 4px 0;
+  display: ${({ $isOpen }) => ($isOpen ? 'flex' : 'none')};
+  flex-direction: column;
+  min-width: 220px;
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+`
+
+const MenuButton = styled.button`
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  border: none;
+  background-color: transparent;
+  color: #CAC8C6;
+  font-size: 15px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  cursor: pointer;
+  text-align: left;
+  transition: color 200ms ease, background-color 200ms ease;
+  position: relative;
+
+  &:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 20px;
+    right: 20px;
+    height: 1px;
+    background: rgba(255, 220, 52, 0.1);
+  }
+
+  &:hover {
+    color: #FFDC34;
+    background-color: rgba(255, 220, 52, 0.05);
+  }
+
+  &:active {
+    background-color: rgba(255, 220, 52, 0.1);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    color: #9d9b97;
+    
+    &:hover {
+      background-color: transparent;
+      color: #9d9b97;
+    }
+  }
+`
+
 export const Header = ({ onAddClick, title, subtitle, onBack }: HeaderProps) => {
+  const navigate = useNavigate()
+  const params = useParams()
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  const lapId = params.lapId
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuRef.current &&
+        buttonRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setIsMenuOpen(false)
+      }
+    }
+
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isMenuOpen])
+
+  const handleMenuClick = () => {
+    setIsMenuOpen(!isMenuOpen)
+  }
+
+  const handleNavigate = (path: string) => {
+    setIsMenuOpen(false)
+    navigate(path)
+  }
+
+  const menuItems = [
+    { label: 'Главная', path: '/', disabled: false },
+    { label: 'Список ЛЭП', path: '/home', disabled: false },
+    { label: 'История', path: lapId ? `/line/${lapId}` : '/home', disabled: !lapId },
+    { label: 'Неисправности', path: lapId ? `/line/${lapId}/issues` : '/home', disabled: !lapId },
+  ]
+
   return (
     <HeaderWrapper>
       <HeaderContainer>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          {onBack && (
-            <BackButton type="button" onClick={onBack}>
-              ← Назад
-            </BackButton>
+        <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+          {(onBack || title) && (
+            <BurgerButton
+              ref={buttonRef}
+              type="button"
+              onClick={handleMenuClick}
+              aria-label="Меню"
+            >
+              <BurgerLine $isOpen={isMenuOpen} $position="first" />
+              <BurgerLine $isOpen={isMenuOpen} $position="middle" />
+              <BurgerLine $isOpen={isMenuOpen} $position="last" />
+            </BurgerButton>
+          )}
+          {isMenuOpen && (
+            <DropdownMenu ref={menuRef} $isOpen={isMenuOpen}>
+              {menuItems.map((item) => (
+                <MenuButton
+                  key={item.path}
+                  type="button"
+                  onClick={() => handleNavigate(item.path)}
+                  disabled={item.disabled}
+                >
+                  {item.label}
+                </MenuButton>
+              ))}
+            </DropdownMenu>
           )}
           {!title && <Logo src={toklyLogo} alt="Tokly" />}
         </div>
@@ -138,6 +310,9 @@ export const Header = ({ onAddClick, title, subtitle, onBack }: HeaderProps) => 
             </AddButton>
           )
         )}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Logo src={toklyLogo} alt="Tokly" />
+        </div>
       </HeaderContainer>
     </HeaderWrapper>
   )

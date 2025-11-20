@@ -261,3 +261,57 @@ export async function deleteGroup(groupId: number): Promise<void> {
   }
 }
 
+export type Detection = {
+  id: number
+  class: string
+  damage_level: number
+}
+
+export type GroupImagesResponse = {
+  image_count: number
+  detections_count: number
+  images: {
+    [imageUid: string]: Detection[]
+  }
+}
+
+export async function getGroupImages(groupId: number): Promise<GroupImagesResponse> {
+  const url = `${API_BASE_URL}/metric/group?group_id=${groupId}`
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+    })
+
+    if (!response.ok) {
+      let errorText = ''
+      let errorJson = null
+
+      try {
+        errorText = await response.text()
+        if (errorText) {
+          try {
+            errorJson = JSON.parse(errorText)
+          } catch {
+            void 0
+          }
+        }
+      } catch (e) {
+        console.error('[API] Failed to read error response:', e)
+      }
+
+      const errorMessage = errorJson?.message || errorText || response.statusText
+      throw new Error(`Failed to fetch group images (${response.status}): ${errorMessage}`)
+    }
+
+    const data: GroupImagesResponse = await response.json()
+    return data
+  } catch (error) {
+    console.error('[API] Failed to fetch group images:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error(`Failed to fetch group images: ${String(error)}`)
+  }
+}
+

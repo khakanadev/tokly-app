@@ -346,7 +346,7 @@ export function LapDetailsPage({ laps }: LapDetailsPageProps) {
 
   return (
     <>
-      <Header title={title} onBack={() => navigate('/home')} />
+      <Header title={title} />
       <Content>
         <DropzoneSection>
           <UploadDropzone onFilesDrop={handleFilesDrop} />

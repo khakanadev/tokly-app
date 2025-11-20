@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 import { Content } from '../components/Layout'
 import { UploadDropzone } from '../components/UploadDropzone'
@@ -48,6 +49,7 @@ const LargeDropzoneWrapper = styled.div`
 `
 
 export function WelcomePage() {
+  const navigate = useNavigate()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
@@ -64,7 +66,7 @@ export function WelcomePage() {
   }
 
   const handleSuccess = async (lapId: string) => {
-    void lapId // ЛЭП успешно создана
+    navigate(`/line/${lapId}/issues`)
   }
 
   return (
