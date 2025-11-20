@@ -1,10 +1,12 @@
 import { type FormEvent, useState } from 'react'
 import styled from 'styled-components'
+import { UploadDropzone } from './UploadDropzone'
+import { createGroup, detectPhoto } from '../services/api'
 
 type AddLapModalProps = {
   isOpen: boolean
   onClose: () => void
-  onSubmit: (lapId: string) => void
+  onSuccess?: (lapId: string) => Promise<void> | void
 }
 
 const Overlay = styled.div`
@@ -19,7 +21,7 @@ const Overlay = styled.div`
 `
 
 const Modal = styled.div`
-  width: 420px;
+  width: 520px;
   padding: 32px;
   border-radius: 24px;
   background: #0e0c0a;
@@ -57,13 +59,67 @@ const Input = styled.input`
   }
 `
 
+const DropzoneLabel = styled.p`
+  margin: 0;
+  font-size: 16px;
+  color: #cac8c6;
+  font-family: 'Inter', sans-serif;
+`
+
+const DropzoneWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`
+
+const FileInfo = styled.div`
+  font-size: 14px;
+  color: #9d9b97;
+  font-family: 'Inter', sans-serif;
+`
+
+const ErrorText = styled.p`
+  margin: 0;
+  font-size: 14px;
+  color: #de6f6d;
+  font-family: 'Inter', sans-serif;
+`
+
+const ProgressWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
+const ProgressTrack = styled.div`
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 220, 52, 0.2);
+  overflow: hidden;
+`
+
+const ProgressBar = styled.div<{ $value: number }>`
+  height: 100%;
+  border-radius: 999px;
+  background: #ffdc34;
+  width: ${({ $value }) => `${$value}%`};
+  transition: width 200ms ease;
+`
+
+const ProgressLabel = styled.span`
+  font-size: 13px;
+  color: #cac8c6;
+  font-family: 'Inter', sans-serif;
+`
+
 const Actions = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 12px;
 `
 
-const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
+const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary'; disabled?: boolean }>`
   min-width: 120px;
   padding: 12px 16px;
   border-radius: 12px;
@@ -86,15 +142,31 @@ const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
   `}
 
   &:hover {
-    filter: brightness(1.05);
+    filter: ${({ disabled }) => (disabled ? 'none' : 'brightness(1.05)')};
   }
+
+  ${({ disabled }) =>
+    disabled
+      ? `
+    opacity: 0.6;
+    cursor: not-allowed;
+  `
+      : ''}
 `
 
-export const AddLapModal = ({ isOpen, onClose, onSubmit }: AddLapModalProps) => {
+export const AddLapModal = ({ isOpen, onClose, onSuccess }: AddLapModalProps) => {
   const [value, setValue] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [progress, setProgress] = useState(0)
 
-  if (!isOpen) {
-    return null
+  const resetState = () => {
+    setValue('')
+    setFile(null)
+    setError(null)
+    setIsSubmitting(false)
+    setProgress(0)
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,18 +175,57 @@ export const AddLapModal = ({ isOpen, onClose, onSubmit }: AddLapModalProps) => 
     setValue(numericValue)
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleFilesDrop = (files: File[]) => {
+    setFile(files[0] ?? null)
+  }
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!value.trim()) {
+      setError('Введите ID ЛЭП')
       return
     }
-    onSubmit(value.trim())
-    setValue('')
+    if (!file) {
+      setError('Прикрепите фотографию для обработки')
+      return
+    }
+
+    setError(null)
+    setIsSubmitting(true)
+    setProgress(10)
+
+    const lapId = value.trim()
+
+    try {
+      const groupId = await createGroup(lapId)
+      setProgress(55)
+
+      await detectPhoto(groupId, file)
+      setProgress(100)
+
+      if (onSuccess) {
+        await onSuccess(lapId)
+      }
+
+      setTimeout(() => {
+        resetState()
+        onClose()
+      }, 300)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Не удалось создать группу'
+      setError(message)
+      setIsSubmitting(false)
+      setProgress(0)
+    }
   }
 
   const handleCancel = () => {
-    setValue('')
+    resetState()
     onClose()
+  }
+
+  if (!isOpen) {
+    return null
   }
 
   return (
@@ -131,12 +242,26 @@ export const AddLapModal = ({ isOpen, onClose, onSubmit }: AddLapModalProps) => 
             onChange={handleChange}
             autoFocus
           />
+          <DropzoneWrapper>
+            <DropzoneLabel>Прикрепите фото для обработки</DropzoneLabel>
+            <UploadDropzone onFilesDrop={handleFilesDrop} />
+            {file && <FileInfo>Выбран файл: {file.name}</FileInfo>}
+          </DropzoneWrapper>
+          {error && <ErrorText>{error}</ErrorText>}
+          {isSubmitting && (
+            <ProgressWrapper>
+              <ProgressLabel>Загрузка и обработка…</ProgressLabel>
+              <ProgressTrack>
+                <ProgressBar $value={progress} />
+              </ProgressTrack>
+            </ProgressWrapper>
+          )}
           <Actions>
-            <ActionButton type="button" onClick={handleCancel}>
+            <ActionButton type="button" onClick={handleCancel} disabled={isSubmitting}>
               Отмена
             </ActionButton>
-            <ActionButton $variant="primary" type="submit">
-              Добавить
+            <ActionButton $variant="primary" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Отправляем…' : 'Добавить'}
             </ActionButton>
           </Actions>
         </Form>

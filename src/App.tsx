@@ -6,7 +6,7 @@ import { AddLapModal } from './components/AddLapModal'
 import { HomePage } from './pages/HomePage'
 import { LapDetailsPage } from './pages/LapDetailsPage'
 import { LapIssuesPage } from './pages/LapIssuesPage'
-import { createGroup, deleteGroup, getGroupsFromLapData, getLaps, type Group, type LapsResponse } from './services/api'
+import { deleteGroup, getGroupsFromLapData, getLaps, type Group, type LapsResponse } from './services/api'
 import { type Lap } from './components/MainHeader'
 
 const transformLapsData = (data: LapsResponse): Lap[] => {
@@ -45,91 +45,48 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1)
   const navigate = useNavigate()
 
-  useEffect(() => {
-    const loadLaps = async () => {
-      try {
-        console.log('[App] Loading laps on mount...')
-        const data = await getLaps()
-        console.log('[App] Successfully loaded laps:', data)
-        const transformedLaps = transformLapsData(data)
-        setLaps(transformedLaps)
-        console.log('[App] Laps set in state:', transformedLaps.length, 'items')
-      } catch (error) {
-        console.error('[App] Failed to load laps:', error)
-        setLaps([])
-        if (error instanceof Error) {
-          console.error('[App] Error details:', error.message)
-        }
+  const loadLaps = async () => {
+    try {
+      console.log('[App] Loading laps...')
+      const data = await getLaps()
+      const transformedLaps = transformLapsData(data)
+      setLaps(transformedLaps)
+      console.log('[App] Laps set in state:', transformedLaps.length, 'items')
+    } catch (error) {
+      console.error('[App] Failed to load laps:', error)
+      setLaps([])
+      if (error instanceof Error) {
+        console.error('[App] Error details:', error.message)
       }
     }
+  }
 
-    loadLaps()
+  useEffect(() => {
+    void loadLaps()
   }, [])
 
-  const handleAddLap = async (lapId: string) => {
+  const handleLapCreationSuccess = async (lapId: string) => {
     try {
-      console.log('[App] Creating group for LEP:', lapId)
-      
-      setLaps((prevLaps) => {
-        const exists = prevLaps.some((lap) => lap.id === lapId)
-        if (exists) {
-          console.log('[App] LEP already exists in list, will refresh from server')
-          return prevLaps
-        }
-        console.log('[App] Adding LEP optimistically to list:', lapId)
-        const newLap: Lap = {
-          id: lapId,
-          label: lapId,
-        }
-        return [...prevLaps, newLap]
-      })
+      console.log('[App] Refreshing laps after creation...')
+      const data = await getLaps()
+      const transformedLaps = transformLapsData(data)
+      setLaps(transformedLaps)
 
-      setIsModalOpen(false)
-
-      const groupId = await createGroup(lapId)
-      console.log('[App] Group created with ID:', groupId)
-
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      console.log('[App] Refreshing laps list from server...')
-      try {
-        const data = await getLaps()
-        console.log('[App] Received data from server:', data)
-        
-        const transformedLaps = transformLapsData(data)
-        console.log('[App] Transformed laps:', transformedLaps)
-        console.log('[App] Previous laps count:', laps.length, 'New laps count:', transformedLaps.length)
-        
-        setLaps(transformedLaps)
-
-        const itemsPerPage = 10
-        const lapIndex = transformedLaps.findIndex((lap) => lap.id === lapId)
-        if (lapIndex >= 0) {
-          const targetPage = Math.floor(lapIndex / itemsPerPage) + 1
-          console.log('[App] Setting page to:', targetPage, 'for LEP at index', lapIndex)
-          setCurrentPage(targetPage)
-        } else {
-          const newTotalPages = Math.ceil(transformedLaps.length / itemsPerPage)
-          console.log('[App] Setting page to last page:', newTotalPages)
-          setCurrentPage(newTotalPages)
-        }
-
-        console.log('[App] Group creation completed successfully')
-      } catch (refreshError) {
-        console.error('[App] Failed to refresh laps after group creation:', refreshError)
-        console.warn('[App] Could not sync with server, but LEP is already in the list')
+      const itemsPerPage = 10
+      const lapIndex = transformedLaps.findIndex((lap) => lap.id === lapId)
+      if (lapIndex >= 0) {
+        const targetPage = Math.floor(lapIndex / itemsPerPage) + 1
+        setCurrentPage(targetPage)
+      } else {
+        const newTotalPages = Math.ceil(transformedLaps.length / itemsPerPage)
+        setCurrentPage(newTotalPages > 0 ? newTotalPages : 1)
       }
     } catch (error) {
-      console.error('[App] Failed to create group:', error)
-      
-      setLaps((prevLaps) => {
-        const filtered = prevLaps.filter((lap) => lap.id !== lapId)
-        console.log('[App] Rolled back optimistic update, removed LEP:', lapId)
-        return filtered
-      })
-      
+      console.error('[App] Failed to refresh laps after creation:', error)
       const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка'
-      alert(`Не удалось создать группу: ${errorMessage}\n\nПроверьте, что сервер доступен и попробуйте еще раз.`)
+      alert(`ЛЭП создана, но не удалось обновить список: ${errorMessage}`)
+    } finally {
+      setIsModalOpen(false)
     }
   }
 
@@ -244,7 +201,11 @@ function App() {
           </Routes>
         </Container>
       </Page>
-      <AddLapModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddLap} />
+      <AddLapModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleLapCreationSuccess}
+      />
     </>
   )
 }
