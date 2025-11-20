@@ -6,7 +6,7 @@ import { Header } from './components/Header'
 import { MainHeader, type Lap } from './components/MainHeader'
 import { AddLapModal } from './components/AddLapModal'
 import { UploadDropzone } from './components/UploadDropzone'
-import { createGroup, deleteGroup, getLaps, type LapsResponse, type Group, getGroupsFromLapData } from './services/api'
+import { createGroup, deleteGroup, detectPhoto, getGroupsFromLapData, getLaps, type Group, type LapsResponse } from './services/api'
 
 const Page = styled.div`
   min-height: 100vh;
@@ -34,6 +34,18 @@ const Content = styled.main`
 const DropzoneSection = styled.section`
   width: 100%;
 `
+
+const UploadStatusText = styled.p`
+  margin: 12px 0 0;
+  font-size: 16px;
+  color: #cac8c6;
+  font-family: 'Inter', sans-serif;
+`
+
+const UploadErrorText = styled(UploadStatusText)`
+  color: #de6f6d;
+`
+
 
 const RequestButton = styled.button`
   width: 100%;
@@ -306,16 +318,40 @@ const buildConicGradient = (stats: IssueStat[]) => {
 
 type LapDetailsRouteProps = {
   laps: Lap[]
-  onFilesDrop: (files: File[]) => void
 }
 
-const LapDetailsRoute = ({ laps, onFilesDrop }: LapDetailsRouteProps) => {
+const LapDetailsRoute = ({ laps }: LapDetailsRouteProps) => {
   const { lapId } = useParams()
   const navigate = useNavigate()
   const lapIndex = laps.findIndex((lap) => lap.id === lapId)
   const lap = lapIndex >= 0 ? laps[lapIndex] : null
   const totalIssues = mockIssueStats.reduce((acc, stat) => acc + stat.count, 0)
   const gradient = buildConicGradient(mockIssueStats)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploadSuccess, setUploadSuccess] = useState(false)
+
+  const handleFilesDrop = async (files: File[]) => {
+    if (!lap || files.length === 0) {
+      return
+    }
+
+    const file = files[0]
+    setUploadError(null)
+    setIsUploading(true)
+    setUploadSuccess(false)
+
+    try {
+      const testGroupId = '4'
+      await detectPhoto(testGroupId, file)
+      setUploadSuccess(true)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось обработать фото'
+      setUploadError(message)
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
   const title = lap ? `ЛЭП № ${lap.label}` : 'ЛЭП не найдена'
 
@@ -324,7 +360,10 @@ const LapDetailsRoute = ({ laps, onFilesDrop }: LapDetailsRouteProps) => {
       <Header title={title} onBack={() => navigate('/')} />
       <Content>
         <DropzoneSection>
-          <UploadDropzone onFilesDrop={onFilesDrop} />
+          <UploadDropzone onFilesDrop={handleFilesDrop} />
+          {isUploading && <UploadStatusText>Отправляем фото на обработку…</UploadStatusText>}
+          {uploadSuccess && !uploadError && <UploadStatusText>Фото успешно отправлено на обработку</UploadStatusText>}
+          {uploadError && <UploadErrorText>{uploadError}</UploadErrorText>}
         </DropzoneSection>
         <RequestButton type="button">Запросить бригаду</RequestButton>
         <StatsGrid>
@@ -402,10 +441,6 @@ function App() {
 
     loadLaps()
   }, [])
-
-  const handleFilesDrop = (files: File[]) => {
-    console.log('Dropped files:', files)
-  }
 
   const handleAddLap = async (lapId: string) => {
     try {
@@ -579,7 +614,7 @@ function App() {
             />
             <Route
               path="/line/:lapId"
-              element={<LapDetailsRoute laps={laps} onFilesDrop={handleFilesDrop} />}
+              element={<LapDetailsRoute laps={laps} />}
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

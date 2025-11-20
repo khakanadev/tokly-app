@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.DEV ? '/api' : 'http://100.88.60.130:8080'
+export const API_BASE_URL = import.meta.env.DEV ? '/api' : 'http://100.88.60.130:8080'
 
 console.log('[API] Base URL:', API_BASE_URL, '(DEV:', import.meta.env.DEV, ')')
 
@@ -28,6 +28,93 @@ export function getGroupsFromLapData(lapData: LapData): Group[] {
 
 export type CreateGroupResponse = {
   id: number
+}
+
+export type DetectPhotoResponse = {
+  group_id?: number
+  image_uid?: string
+  message?: string
+}
+
+export async function detectPhoto(groupId: string | number, file: File): Promise<DetectPhotoResponse> {
+  const url = `${API_BASE_URL}/detect?group_id=${encodeURIComponent(groupId)}`
+  const requestContentType = file.type || 'application/octet-stream'
+
+  console.log('[API] Detect photo request:', {
+    method: 'POST',
+    url,
+    groupId,
+    fileName: file.name,
+    fileType: file.type,
+    fileSize: file.size,
+  })
+
+  try {
+    const response: Response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': requestContentType,
+      },
+      body: file,
+    })
+
+    console.log('[API] Detect response status:', response.status, response.statusText)
+    console.log('[API] Detect response headers:', Object.fromEntries(response.headers.entries()))
+
+    if (!response.ok) {
+      let errorText = ''
+      let errorJson = null
+
+      try {
+        errorText = await response.text()
+        console.error('[API] Detect error response text:', errorText)
+
+        if (errorText) {
+          try {
+            errorJson = JSON.parse(errorText)
+            console.error('[API] Detect error response JSON:', errorJson)
+          } catch {
+            void 0
+          }
+        }
+      } catch (e) {
+        console.error('[API] Failed to read detect error response:', e)
+      }
+
+      const errorMessage = errorJson?.message || errorText || response.statusText
+      throw new Error(`Failed to process photo (${response.status}): ${errorMessage}`)
+    }
+
+    const responseContentType = response.headers.get('Content-Type') || ''
+    const rawBody = await response.text()
+
+    if (!rawBody.trim()) {
+      console.warn('[API] Detect photo response body is empty, assuming success')
+      return { group_id: typeof groupId === 'number' ? groupId : Number.parseInt(String(groupId), 10) }
+    }
+
+    if (!responseContentType.toLowerCase().includes('application/json')) {
+      console.error('[API] Unexpected detect response body:', rawBody)
+      throw new Error(`Сервер вернул данные в неподдерживаемом формате: ${responseContentType || 'unknown'}`)
+    }
+
+    let data: DetectPhotoResponse
+    try {
+      data = JSON.parse(rawBody)
+    } catch (parseError) {
+      console.error('[API] Failed to parse detect response JSON:', parseError, rawBody)
+      throw new Error('Не удалось прочитать ответ сервера (некорректный JSON)')
+    }
+
+    console.log('[API] Detect photo success:', data)
+    return data
+  } catch (error) {
+    console.error('[API] Failed to detect photo:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error(`Failed to detect photo: ${String(error)}`)
+  }
 }
 
 export async function createGroup(lapId: string): Promise<number> {
