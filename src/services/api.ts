@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.DEV ? '/api' : 'http://91.109.146.20:8080'
+const API_BASE_URL = import.meta.env.DEV ? '/api' : 'http://100.88.60.130:8080'
 
 console.log('[API] Base URL:', API_BASE_URL, '(DEV:', import.meta.env.DEV, ')')
 

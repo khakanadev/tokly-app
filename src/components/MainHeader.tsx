@@ -18,6 +18,8 @@ type MainHeaderProps = {
   onSelectLap?: (lap: Lap, globalIndex: number) => void
 }
 
+const ROW_HEIGHT = '53px'
+
 const MainHeaderWrapper = styled.section`
   display: flex;
   align-items: flex-start;
@@ -75,17 +77,21 @@ const Row = styled.div`
   display: flex;
   align-items: center;
   width: 100%;
+  height: ${ROW_HEIGHT};
+  min-height: ${ROW_HEIGHT};
 `
 
 const RowButton = styled.button`
   display: flex;
-  align-items: center;
+  align-items: stretch;
   border: none;
   background: transparent;
   padding: 0;
   cursor: pointer;
   flex: 1;
   gap: 0;
+  height: ${ROW_HEIGHT};
+  min-height: ${ROW_HEIGHT};
 
   &:focus-visible {
     outline: 2px solid #FFDC34;
@@ -95,9 +101,9 @@ const RowButton = styled.button`
 
 const LapInfo = styled.div`
   width: 862px;
-  height: 53px;
-  min-height: 53px;
-  max-height: 53px;
+  height: 100%;
+  min-height: ${ROW_HEIGHT};
+  max-height: ${ROW_HEIGHT};
   border-radius: 15px;
   background: #ffffff;
   display: flex;
@@ -115,9 +121,9 @@ const LapInfo = styled.div`
 
 const Status = styled.div<{ $bgColor?: string; $borderColor?: string }>`
   width: 147px;
-  height: 53px;
-  min-height: 53px;
-  max-height: 53px;
+  height: 100%;
+  min-height: ${ROW_HEIGHT};
+  max-height: ${ROW_HEIGHT};
   border-radius: 15px;
   background: ${({ $bgColor }) => $bgColor || '#FFF5C7'};
   border: 3px solid ${({ $borderColor }) => $borderColor || '#FFDC34'};
@@ -166,10 +172,24 @@ const Icon = styled.img`
   display: block;
 `
 
+const EmptyStateWrapper = styled.div`
+  width: 100%;
+  border-radius: 15px;
+  background: #0E0C0A;
+  padding: 80px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+`
+
 const EmptyState = styled.div`
-  color: #5a5854;
+  color: #9d9b97;
   font-family: 'Inter', sans-serif;
-  font-size: 18px;
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1.5;
+  max-width: 520px;
 `
 
 const PaginationWrapper = styled.div`
@@ -386,6 +406,14 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
     </svg>
   )
 
+  if (laps.length === 0) {
+    return (
+      <EmptyStateWrapper>
+        <EmptyState>Создайте новый маршрут</EmptyState>
+      </EmptyStateWrapper>
+    )
+  }
+
   return (
     <>
       <MainHeaderWrapper>
@@ -407,7 +435,7 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
             <RowsContainer>
               {currentLaps.map((lap, index) => {
                 const getStatusColors = () => {
-                  if (lap.have_problems === false) {
+                  if (lap.have_problems === true) {
                     return { bg: '#DE6F6D', border: '#C85A58' } // красный
                   }
                   // Если true или undefined - желтая подложка (как была)
@@ -419,7 +447,7 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
                     <RowButton type="button" onClick={() => handleSelect(index)}>
                       <LapInfo>ЛЭП № {lap.label}</LapInfo>
                       <Status $bgColor={colors.bg} $borderColor={colors.border}>
-                        {lap.have_problems === false ? 'не норма' : lap.have_problems === true ? 'норма' : 'статус'}
+                        {lap.have_problems === false ? 'норма' : lap.have_problems === true ? 'не норма' : 'статус'}
                       </Status>
                     </RowButton>
                     <DeleteButton type="button" onClick={() => handleDelete(index)}>
