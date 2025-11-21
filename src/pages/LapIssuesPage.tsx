@@ -1,5 +1,5 @@
 import { useEffect, useState, type MouseEvent } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { Content } from '../components/Layout'
 import { Header } from '../components/Header'
@@ -139,6 +139,11 @@ const LoadingText = styled.div`
   margin-top: 24px;
 `
 
+const NoPhotosText = styled(LoadingText)`
+  margin-top: 0;
+  width: 100%;
+`
+
 const MagnifierLens = styled.div<{ $visible: boolean }>`
   position: absolute;
   pointer-events: none;
@@ -192,9 +197,10 @@ type SectionImages = {
 type ImageWithMasksProps = {
   imageUrl: string
   detections: Detection[]
+  onOpenEditor: () => void
 }
 
-function ImageWithMasks({ imageUrl, detections }: ImageWithMasksProps) {
+function ImageWithMasks({ imageUrl, detections, onOpenEditor }: ImageWithMasksProps) {
   const [lensState, setLensState] = useState({
     visible: false,
     x: IMAGE_WIDTH / 2,
@@ -231,7 +237,7 @@ function ImageWithMasks({ imageUrl, detections }: ImageWithMasksProps) {
   const offsetY = lensState.y * MAGNIFIER_ZOOM - lensHalf
 
   return (
-    <ImageContainer onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
+    <ImageContainer onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave} onClick={onOpenEditor}>
       <BaseImage src={imageUrl} alt="Фото" loading="lazy" />
       {detections.map((detection) => (
         <MaskLayer
@@ -298,17 +304,24 @@ const transformLapsData = (data: LapsResponse): Lap[] => {
 }
 
 export function LapIssuesPage({ laps }: LapIssuesPageProps) {
+  const navigate = useNavigate()
   const { lapId } = useParams()
   const [currentLap, setCurrentLap] = useState<Lap | null>(laps.find((item) => item.id === lapId) || null)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
   const [sectionImages, setSectionImages] = useState<SectionImages>({})
   const [groupId, setGroupId] = useState<number | null>(null)
+  const [isLapLoading, setIsLapLoading] = useState(true)
 
-  const title = currentLap ? `Неисправности ЛЭП № ${currentLap.label}` : 'ЛЭП не найдена'
+  const title = isLapLoading
+    ? 'Загрузка ЛЭП...'
+    : currentLap
+      ? `Неисправности ЛЭП № ${currentLap.label}`
+      : 'ЛЭП не найдена'
 
   useEffect(() => {
     const loadLapAndGroupId = async () => {
       if (!lapId) return
+      setIsLapLoading(true)
       
       try {
         console.log('[LapIssuesPage] Loading lap and group ID for lapId:', lapId)
@@ -348,12 +361,18 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
         }
       } catch (error) {
         console.error('[LapIssuesPage] Failed to load lap and group ID:', error)
+      } finally {
+        setIsLapLoading(false)
       }
     }
     void loadLapAndGroupId()
   }, [lapId])
 
   const toggleSection = async (sectionId: string) => {
+    if (isLapLoading) {
+      console.log('[LapIssuesPage] Preventing section toggle while lap is loading')
+      return
+    }
     const isOpening = !openSections[sectionId]
     setOpenSections((prev) => ({
       ...prev,
@@ -451,10 +470,20 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
                             key={imageData.imageUid}
                             imageUrl={`${API_BASE_URL}/image/${groupId}/${imageData.imageUid}.jpeg`}
                             detections={imageData.detections}
+                            onOpenEditor={() =>
+                              navigate('/editor', {
+                                state: {
+                                  imageUrl: `${API_BASE_URL}/image/${groupId}/${imageData.imageUid}.jpeg`,
+                                  maskUrls: imageData.detections.map(
+                                    (detection) => `${MASK_BASE_URL}/mask/${detection.id}.png`,
+                                  ),
+                                },
+                              })
+                            }
                           />
                         ))
                       ) : (
-                        <LoadingText style={{ width: '100%' }}>Фотографий не найдено</LoadingText>
+                        <NoPhotosText>Фотографий не найдено</NoPhotosText>
                       )}
                     </PhotoPlaceholderGrid>
                   )}

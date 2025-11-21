@@ -7,6 +7,7 @@ import { WelcomePage } from './pages/WelcomePage'
 import { HomePage } from './pages/HomePage'
 import { LapDetailsPage } from './pages/LapDetailsPage'
 import { LapIssuesPage } from './pages/LapIssuesPage'
+import { PhotoEditorPage } from './pages/PhotoEditorPage'
 import { deleteGroup, getGroupsFromLapData, getLaps, type Group, type LapsResponse } from './services/api'
 import { type Lap } from './components/MainHeader'
 
@@ -199,6 +200,7 @@ function App() {
               path="/line/:lapId/issues"
               element={<LapIssuesPage laps={laps} />}
             />
+            <Route path="/editor" element={<PhotoEditorPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Container>
