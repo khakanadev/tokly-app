@@ -4,7 +4,7 @@ import { GlobalStyle } from './styles/GlobalStyles'
 import { Page, Container } from './components/Layout'
 import { AddLapModal } from './components/AddLapModal'
 import { WelcomePage } from './pages/WelcomePage'
-import { HomePage } from './pages/HomePage'
+import { LapListPage } from './pages/LapListPage'
 import { LapDetailsPage } from './pages/LapDetailsPage'
 import { LapIssuesPage } from './pages/LapIssuesPage'
 import { PhotoEditorPage } from './pages/PhotoEditorPage'
@@ -181,14 +181,13 @@ function App() {
             <Route
               path="/home"
               element={
-                <HomePage
+                <LapListPage
                   laps={laps}
                   currentPage={currentPage}
                   onPageChange={setCurrentPage}
                   onDelete={handleDeleteLap}
                   onEdit={handleEditLap}
                   onSelectLap={handleSelectLap}
-                  onAddClick={() => setIsModalOpen(true)}
                 />
               }
             />

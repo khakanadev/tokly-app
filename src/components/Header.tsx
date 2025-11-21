@@ -4,10 +4,8 @@ import styled from 'styled-components'
 import toklyLogo from '../assets/tokly11.svg'
 
 type HeaderProps = {
-  onAddClick?: () => void
   title?: string
   subtitle?: string
-  onBack?: () => void
 }
 
 const HeaderWrapper = styled.div`
@@ -31,41 +29,6 @@ const Logo = styled.img`
   height: 50px;
   width: auto;
   display: block;
-`
-
-const AddButton = styled.button`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 314px;
-  height: 52px;
-  border-radius: 15px;
-  border: none;
-  outline: 2px #FFDC34 solid;
-  outline-offset: -2px;
-  background-color: transparent;
-  color: #CAC8C6;
-  font-size: 24px;
-  font-family: 'Inter', sans-serif;
-  font-weight: 400;
-  line-height: 1;
-  word-wrap: break-word;
-  cursor: pointer;
-  transition: background-color 220ms ease, color 220ms ease;
-  will-change: background-color, color;
-  backface-visibility: visible;
-  -webkit-backface-visibility: visible;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  &:hover {
-    background-color: #FFDC34;
-    color: #1B1B1B;
-  }
-
-  &:focus-visible {
-    outline-color: #FFDC34;
-  }
 `
 
 const TitleWrapper = styled.div`
@@ -220,7 +183,7 @@ const MenuButton = styled.button`
   }
 `
 
-export const Header = ({ onAddClick, title, subtitle, onBack }: HeaderProps) => {
+export const Header = ({ title, subtitle }: HeaderProps) => {
   const navigate = useNavigate()
   const params = useParams()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -270,18 +233,16 @@ export const Header = ({ onAddClick, title, subtitle, onBack }: HeaderProps) => 
     <HeaderWrapper>
       <HeaderContainer>
         <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-          {(onBack || title) && (
-            <BurgerButton
-              ref={buttonRef}
-              type="button"
-              onClick={handleMenuClick}
-              aria-label="Меню"
-            >
-              <BurgerLine $isOpen={isMenuOpen} $position="first" />
-              <BurgerLine $isOpen={isMenuOpen} $position="middle" />
-              <BurgerLine $isOpen={isMenuOpen} $position="last" />
-            </BurgerButton>
-          )}
+          <BurgerButton
+            ref={buttonRef}
+            type="button"
+            onClick={handleMenuClick}
+            aria-label="Меню"
+          >
+            <BurgerLine $isOpen={isMenuOpen} $position="first" />
+            <BurgerLine $isOpen={isMenuOpen} $position="middle" />
+            <BurgerLine $isOpen={isMenuOpen} $position="last" />
+          </BurgerButton>
           {isMenuOpen && (
             <DropdownMenu ref={menuRef} $isOpen={isMenuOpen}>
               {menuItems.map((item) => (
@@ -296,20 +257,13 @@ export const Header = ({ onAddClick, title, subtitle, onBack }: HeaderProps) => 
               ))}
             </DropdownMenu>
           )}
-          {!title && <Logo src={toklyLogo} alt="Tokly" />}
         </div>
         {title ? (
           <TitleWrapper>
             <Title>{title}</Title>
             {subtitle && <Subtitle>{subtitle}</Subtitle>}
           </TitleWrapper>
-        ) : (
-          onAddClick && (
-            <AddButton type="button" onClick={onAddClick}>
-              добавить
-            </AddButton>
-          )
-        )}
+        ) : null}
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <Logo src={toklyLogo} alt="Tokly" />
         </div>
