@@ -34,10 +34,10 @@ const ContentSection = styled.section`
 
 const MetricsContainer = styled.div`
   width: 100%;
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: space-between;
-  gap: 32px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 48px;
+  row-gap: 24px;
   align-items: flex-start;
 `
 
@@ -102,15 +102,23 @@ const FiltersGrid = styled.div`
 
 const FilterButton = styled.button`
   width: 100%;
-  border-radius: 74px;
+  border-radius: 48px;
   border: 2px solid #ffe670;
-  background: #fffce4;
-  color: #1b1b1b;
-  font-size: 28px;
+  background: #1b1b1b;
+  color: #ffe670;
+  font-size: 22px;
   font-family: 'Nunito', sans-serif;
   font-weight: 400;
-  padding: 16px 24px;
+  padding: 12px 20px;
   cursor: pointer;
+  transition: background-color 220ms ease, color 220ms ease;
+  outline: 2px solid #ffe670;
+  outline-offset: -2px;
+
+  &:hover {
+    background: #ffe670;
+    color: #1b1b1b;
+  }
 `
 
 const PhotosTitle = styled.h2`
@@ -381,7 +389,7 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
   const title = isLapLoading
     ? 'Загрузка ЛЭП...'
     : currentLap
-      ? `Неисправности ЛЭП № ${currentLap.label}`
+      ? `Фотографии ЛЭП`
       : 'ЛЭП не найдена'
 
   useEffect(() => {

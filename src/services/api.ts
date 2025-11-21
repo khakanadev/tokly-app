@@ -58,6 +58,14 @@ export async function detectPhoto(groupId: string | number, file: File): Promise
         console.error('[API] Detect error response text:', errorText)
 
         if (errorText) {
+          // Проверяем, является ли ответ HTML (например, страница ошибки 503)
+          if (errorText.trim().startsWith('<!DOCTYPE') || errorText.trim().startsWith('<html')) {
+            if (response.status === 503) {
+              throw new Error('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
+            }
+            throw new Error(`Сервер вернул ошибку ${response.status}. Сервис может быть временно недоступен.`)
+          }
+          
           try {
             errorJson = JSON.parse(errorText)
             console.error('[API] Detect error response JSON:', errorJson)
@@ -67,6 +75,14 @@ export async function detectPhoto(groupId: string | number, file: File): Promise
         }
       } catch (e) {
         console.error('[API] Failed to read detect error response:', e)
+        if (e instanceof Error) {
+          throw e
+        }
+      }
+
+      // Для 503 показываем понятное сообщение
+      if (response.status === 503) {
+        throw new Error('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
       }
 
       const errorMessage = errorJson?.message || errorText || response.statusText
@@ -124,6 +140,14 @@ export async function createGroup(lapId: string): Promise<number> {
         console.error('[API] Error response text:', errorText)
         
         if (errorText) {
+          // Проверяем, является ли ответ HTML (например, страница ошибки 503)
+          if (errorText.trim().startsWith('<!DOCTYPE') || errorText.trim().startsWith('<html')) {
+            if (response.status === 503) {
+              throw new Error('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
+            }
+            throw new Error(`Сервер вернул ошибку ${response.status}. Сервис может быть временно недоступен.`)
+          }
+          
           try {
             errorJson = JSON.parse(errorText)
             console.error('[API] Error response JSON:', errorJson)
@@ -133,6 +157,14 @@ export async function createGroup(lapId: string): Promise<number> {
         }
       } catch (e) {
         console.error('[API] Failed to read error response:', e)
+        if (e instanceof Error) {
+          throw e
+        }
+      }
+      
+      // Для 503 показываем понятное сообщение
+      if (response.status === 503) {
+        throw new Error('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
       }
       
       const errorMessage = errorJson?.message || errorText || response.statusText
@@ -175,6 +207,14 @@ export async function getLaps(): Promise<LapsResponse> {
         console.error('[API] Error response text:', errorText)
         
         if (errorText) {
+          // Проверяем, является ли ответ HTML (например, страница ошибки 503)
+          if (errorText.trim().startsWith('<!DOCTYPE') || errorText.trim().startsWith('<html')) {
+            if (response.status === 503) {
+              throw new Error('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
+            }
+            throw new Error(`Сервер вернул ошибку ${response.status}. Сервис может быть временно недоступен.`)
+          }
+          
           try {
             errorJson = JSON.parse(errorText)
             console.error('[API] Error response JSON:', errorJson)
@@ -184,6 +224,14 @@ export async function getLaps(): Promise<LapsResponse> {
         }
       } catch (e) {
         console.error('[API] Failed to read error response:', e)
+        if (e instanceof Error) {
+          throw e
+        }
+      }
+      
+      // Для 503 показываем понятное сообщение
+      if (response.status === 503) {
+        throw new Error('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
       }
       
       const errorMessage = errorJson?.message || errorText || response.statusText
@@ -236,6 +284,14 @@ export async function deleteGroup(groupId: number): Promise<void> {
         console.error('[API] Error response text:', errorText)
         
         if (errorText) {
+          // Проверяем, является ли ответ HTML (например, страница ошибки 503)
+          if (errorText.trim().startsWith('<!DOCTYPE') || errorText.trim().startsWith('<html')) {
+            if (response.status === 503) {
+              throw new Error('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
+            }
+            throw new Error(`Сервер вернул ошибку ${response.status}. Сервис может быть временно недоступен.`)
+          }
+          
           try {
             errorJson = JSON.parse(errorText)
             console.error('[API] Error response JSON:', errorJson)
@@ -245,6 +301,14 @@ export async function deleteGroup(groupId: number): Promise<void> {
         }
       } catch (e) {
         console.error('[API] Failed to read error response:', e)
+        if (e instanceof Error) {
+          throw e
+        }
+      }
+      
+      // Для 503 показываем понятное сообщение
+      if (response.status === 503) {
+        throw new Error('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
       }
       
       const errorMessage = errorJson?.message || errorText || response.statusText
@@ -290,6 +354,14 @@ export async function getGroupImages(groupId: number): Promise<GroupImagesRespon
       try {
         errorText = await response.text()
         if (errorText) {
+          // Проверяем, является ли ответ HTML (например, страница ошибки 503)
+          if (errorText.trim().startsWith('<!DOCTYPE') || errorText.trim().startsWith('<html')) {
+            if (response.status === 503) {
+              throw new Error('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
+            }
+            throw new Error(`Сервер вернул ошибку ${response.status}. Сервис может быть временно недоступен.`)
+          }
+          
           try {
             errorJson = JSON.parse(errorText)
           } catch {
@@ -298,6 +370,14 @@ export async function getGroupImages(groupId: number): Promise<GroupImagesRespon
         }
       } catch (e) {
         console.error('[API] Failed to read error response:', e)
+        if (e instanceof Error) {
+          throw e
+        }
+      }
+
+      // Для 503 показываем понятное сообщение
+      if (response.status === 503) {
+        throw new Error('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
       }
 
       const errorMessage = errorJson?.message || errorText || response.statusText

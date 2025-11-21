@@ -171,16 +171,11 @@ export const WelcomeLapModal = ({ isOpen, onClose, file, files, onSuccess }: Wel
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value
-    const numericValue = inputValue.replace(/[^0-9]/g, '')
-    setValue(numericValue)
+    setValue(inputValue)
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!value.trim()) {
-      setError('Введите ID ЛЭП')
-      return
-    }
     if (filesToProcess.length === 0) {
       setError('Файлы не найдены')
       return
@@ -293,8 +288,6 @@ export const WelcomeLapModal = ({ isOpen, onClose, file, files, onSuccess }: Wel
           <InputWrapper>
             <Input
               type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
               placeholder="Введите название"
               value={value}
               onChange={handleChange}
