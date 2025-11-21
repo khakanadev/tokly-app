@@ -219,7 +219,11 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
 
   const handleNavigate = (path: string) => {
     setIsMenuOpen(false)
-    navigate(path)
+    if (path === '/') {
+      navigate(path, { state: { fromHeader: true } })
+    } else {
+      navigate(path)
+    }
   }
 
   const menuItems = [

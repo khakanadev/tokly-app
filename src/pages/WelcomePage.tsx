@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 import { Content } from '../components/Layout'
 import { UploadDropzone } from '../components/UploadDropzone'
 import { WelcomeLapModal } from '../components/WelcomeLapModal'
 import toklyLogo from '../assets/tokly11.svg'
+import { Header } from '../components/Header'
 
-const WelcomeContent = styled(Content)`
-  margin-top: 0;
+const WelcomeContent = styled(Content)<{ $withHeader?: boolean }>`
+  margin-top: ${({ $withHeader }) => ($withHeader ? '30px' : '0')};
   margin-bottom: 100px;
 `
 
@@ -50,6 +51,8 @@ const LargeDropzoneWrapper = styled.div`
 
 export function WelcomePage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const fromHeader = Boolean(location.state?.fromHeader)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -86,11 +89,14 @@ export function WelcomePage() {
 
   return (
     <>
-      <WelcomeContent>
-        <WelcomeHeader>
-          <WelcomeTitle>Добро пожаловать!</WelcomeTitle>
-          <Logo src={toklyLogo} alt="Tokly" />
-        </WelcomeHeader>
+      {fromHeader && <Header />}
+      <WelcomeContent $withHeader={fromHeader}>
+        {!fromHeader && (
+          <WelcomeHeader>
+            <WelcomeTitle>Добро пожаловать!</WelcomeTitle>
+            <Logo src={toklyLogo} alt="Tokly" />
+          </WelcomeHeader>
+        )}
         <DropzoneSection>
           <LargeDropzoneWrapper>
             <UploadDropzone onFilesDrop={handleFilesDrop} />
