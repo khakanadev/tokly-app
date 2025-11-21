@@ -8,6 +8,7 @@ import textIcon from '../assets/txt.svg'
 import logo from '../assets/tokly11.svg'
 import backArrow from '../assets/Arrow 3.svg'
 import undoIcon from '../assets/undo.svg'
+import { API_BASE_URL } from '../services/api'
 
 type ToolType = 'color' | 'rectangle' | 'text'
 
@@ -45,6 +46,8 @@ type LocationState = {
   imageUrl?: string
   maskUrls?: string[]
   detections?: Detection[]
+  groupId?: number
+  imageUid?: string
 }
 
 const DEFAULT_IMAGE =
@@ -66,6 +69,7 @@ export function PhotoEditorPage() {
   const textInputRef = useRef<HTMLInputElement | null>(null)
   const [activeFilter, setActiveFilter] = useState<'critical' | 'damage' | 'objects' | 'custom' | null>(null)
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
+  const [showPolygons, setShowPolygons] = useState(false)
 
   useEffect(() => {
     if (textModalState && textInputRef.current) {
@@ -78,10 +82,40 @@ export function PhotoEditorPage() {
     [],
   )
 
-  const locationState = (location.state as LocationState | undefined) ?? {}
+  const locationState = useMemo(() => (location.state as LocationState | undefined) ?? {}, [location.state])
   const imageUrl = locationState.imageUrl ?? DEFAULT_IMAGE
   const allMaskUrls = useMemo(() => locationState.maskUrls ?? [], [locationState.maskUrls])
   const detections = useMemo(() => locationState.detections ?? [], [locationState.detections])
+  const groupId = locationState.groupId
+  const imageUid = locationState.imageUid
+
+  // Логирование для отладки
+  useEffect(() => {
+    console.log('[PhotoEditorPage] Location state:', {
+      groupId,
+      imageUid,
+      hasImageUrl: !!locationState.imageUrl,
+      hasMaskUrls: !!locationState.maskUrls,
+      fullState: locationState,
+    })
+  }, [groupId, imageUid, locationState])
+
+  // Вычисляем URL полигона (всегда, независимо от showPolygons, для предзагрузки)
+  const polygonUrl = useMemo(() => {
+    if (groupId && imageUid) {
+      return `${API_BASE_URL}/polygon/${groupId}/${imageUid}.png`
+    }
+    return null
+  }, [groupId, imageUid])
+
+  // Предзагрузка полигона в кэш браузера при загрузке страницы
+  useEffect(() => {
+    if (polygonUrl) {
+      const img = new Image()
+      img.src = polygonUrl
+      console.log('[PhotoEditorPage] Preloading polygon:', polygonUrl)
+    }
+  }, [polygonUrl])
 
   // Создаем мапу для связи масок с детекциями по индексу
   // maskUrls и detections должны быть в одинаковом порядке
@@ -276,6 +310,9 @@ export function PhotoEditorPage() {
                 {filteredMaskUrls.map((maskUrl, index) => (
                   <MaskImage key={`${maskUrl}-${index}`} src={maskUrl} alt="Маска" draggable={false} />
                 ))}
+                {showPolygons && polygonUrl && (
+                  <PolygonImage src={polygonUrl} alt="Полигон" draggable={false} />
+                )}
               </BasePhotoWrapper>
               <OverlayLayer>
                 {rectangles.map((rect) => (
@@ -386,6 +423,32 @@ export function PhotoEditorPage() {
                   Пользовательская маска
                 </FilterButton>
               </FilterButtons>
+              <PolygonSwitchContainer>
+                <PolygonSwitchLabel>Выделить объекты</PolygonSwitchLabel>
+                {(() => {
+                  const isDisabled = groupId === undefined || groupId === null || !imageUid || imageUid === ''
+                  if (isDisabled) {
+                    console.log('[PhotoEditorPage] Switch disabled because:', {
+                      groupId,
+                      imageUid,
+                      groupIdType: typeof groupId,
+                      imageUidType: typeof imageUid,
+                      locationState,
+                    })
+                  }
+                  return (
+                    <PolygonSwitch
+                      type="button"
+                      $active={showPolygons}
+                      onClick={() => setShowPolygons(!showPolygons)}
+                      disabled={isDisabled}
+                      title={isDisabled ? `Требуются groupId и imageUid для загрузки полигонов. groupId: ${groupId}, imageUid: ${imageUid}` : ''}
+                    >
+                      <PolygonSwitchSlider $active={showPolygons} />
+                    </PolygonSwitch>
+                  )
+                })()}
+              </PolygonSwitchContainer>
             </PanelContainer>
           </ToolsColumn>
         </EditorBody>
@@ -566,10 +629,22 @@ const MaskImage = styled.img`
   width: 100%;
   height: 100%;
   object-fit: contain;
-  mix-blend-mode: multiply;
-  opacity: 0.6;
+  mix-blend-mode: normal;
+  opacity: 0.95;
   user-select: none;
   pointer-events: none;
+  filter: contrast(1.1) brightness(1.05);
+`
+
+const PolygonImage = styled.img`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+  z-index: 10;
 `
 
 const OverlayLayer = styled.div`
@@ -921,5 +996,57 @@ const ColorPickerButton = styled.button`
     filter: brightness(1.05);
     border-color: #ffdc34;
   }
+`
+
+const PolygonSwitchContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 220, 52, 0.1);
+`
+
+const PolygonSwitchLabel = styled.span`
+  color: #cac8c6;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  flex: 1;
+`
+
+const PolygonSwitch = styled.button<{ $active: boolean }>`
+  position: relative;
+  width: 48px;
+  height: 24px;
+  border-radius: 12px;
+  border: 1px solid ${({ $active }) => ($active ? '#ffdc34' : 'rgba(255, 220, 52, 0.35)')};
+  background: ${({ $active }) => ($active ? 'rgba(255, 220, 52, 0.15)' : 'transparent')};
+  cursor: ${({ disabled }) => (disabled ? 'not-allowed' : 'pointer')};
+  transition: all 150ms ease;
+  padding: 0;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    border-color: #ffdc34;
+    background: rgba(255, 220, 52, 0.1);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+  }
+`
+
+const PolygonSwitchSlider = styled.div<{ $active: boolean }>`
+  position: absolute;
+  top: 2px;
+  left: ${({ $active }) => ($active ? '26px' : '2px')};
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: ${({ $active }) => ($active ? '#ffdc34' : 'rgba(255, 220, 52, 0.5)')};
+  transition: left 150ms ease, background 150ms ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 `
 

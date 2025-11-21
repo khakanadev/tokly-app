@@ -175,9 +175,10 @@ const PhotoMask = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover;
-  mix-blend-mode: multiply;
-  opacity: 0.6;
+  mix-blend-mode: normal;
+  opacity: 0.95;
   pointer-events: none;
+  filter: contrast(1.1) brightness(1.05);
 `
 
 const PhotoStatusText = styled.div`
@@ -318,8 +319,9 @@ const LensImage = styled.img`
 `
 
 const LensMask = styled(LensImage)`
-  mix-blend-mode: multiply;
-  opacity: 0.6;
+  mix-blend-mode: normal;
+  opacity: 0.95;
+  filter: contrast(1.1) brightness(1.05);
 `
 
 // Функция форматирования даты
@@ -535,10 +537,15 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
       try {
         // Проверяем query параметр group_id
         const groupIdParam = searchParams.get('group_id')
+        console.log('[LapIssuesPage] Extracting groupId from query params:', {
+          groupIdParam,
+          allSearchParams: Object.fromEntries(searchParams.entries()),
+        })
         
         if (groupIdParam) {
           const parsedGroupId = Number.parseInt(groupIdParam, 10)
           if (!Number.isNaN(parsedGroupId)) {
+            console.log('[LapIssuesPage] Setting groupId to:', parsedGroupId)
             setGroupId(parsedGroupId)
             setIsLapLoading(false)
             // Все равно загружаем информацию о ЛЭП
@@ -785,15 +792,30 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
                   imageUrl={`${API_BASE_URL}/image/${groupId}/${image.imageUid}.jpeg`}
                   detections={image.detections}
                   maxDamageLevel={image.maxDamageLevel}
-                  onOpenEditor={() =>
-                    navigate('/editor', {
-                      state: {
-                        imageUrl: `${API_BASE_URL}/image/${groupId}/${image.imageUid}.jpeg`,
-                        maskUrls: image.detections.map((detection) => `${MASK_BASE_URL}/mask/${detection.id}.png`),
-                        detections: image.detections,
-                      },
+                  onOpenEditor={() => {
+                    console.log('[LapIssuesPage] Opening editor with:', {
+                      groupId,
+                      imageUid: image.imageUid,
+                      hasDetections: image.detections.length > 0,
                     })
-                  }
+                    if (!groupId) {
+                      console.error('[LapIssuesPage] groupId is null, cannot navigate to editor')
+                      return
+                    }
+                    if (!image.imageUid) {
+                      console.error('[LapIssuesPage] imageUid is missing, cannot navigate to editor')
+                      return
+                    }
+                    const state = {
+                      imageUrl: `${API_BASE_URL}/image/${groupId}/${image.imageUid}.jpeg`,
+                      maskUrls: image.detections.map((detection) => `${MASK_BASE_URL}/mask/${detection.id}.png`),
+                      detections: image.detections,
+                      groupId: groupId,
+                      imageUid: image.imageUid,
+                    }
+                    console.log('[LapIssuesPage] Navigating to editor with state:', state)
+                    navigate('/editor', { state })
+                  }}
                 />
               ))}
             </PhotosGrid>
