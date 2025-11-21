@@ -490,6 +490,7 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
                       state: {
                         imageUrl: `${API_BASE_URL}/image/${groupId}/${image.imageUid}.jpeg`,
                         maskUrls: image.detections.map((detection) => `${MASK_BASE_URL}/mask/${detection.id}.png`),
+                        detections: image.detections,
                       },
                     })
                   }

@@ -35,9 +35,16 @@ type TextModalState = {
   y: number
 }
 
+type Detection = {
+  id: number
+  class: string
+  damage_level: number
+}
+
 type LocationState = {
   imageUrl?: string
   maskUrls?: string[]
+  detections?: Detection[]
 }
 
 const DEFAULT_IMAGE =
@@ -57,6 +64,8 @@ export function PhotoEditorPage() {
   const [textModalState, setTextModalState] = useState<TextModalState | null>(null)
   const [textInputValue, setTextInputValue] = useState('')
   const textInputRef = useRef<HTMLInputElement | null>(null)
+  const [activeFilter, setActiveFilter] = useState<'critical' | 'damage' | 'objects' | 'custom' | null>(null)
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
 
   useEffect(() => {
     if (textModalState && textInputRef.current) {
@@ -71,7 +80,45 @@ export function PhotoEditorPage() {
 
   const locationState = (location.state as LocationState | undefined) ?? {}
   const imageUrl = locationState.imageUrl ?? DEFAULT_IMAGE
-  const maskUrls = locationState.maskUrls ?? []
+  const allMaskUrls = useMemo(() => locationState.maskUrls ?? [], [locationState.maskUrls])
+  const detections = useMemo(() => locationState.detections ?? [], [locationState.detections])
+
+  // Создаем мапу для связи масок с детекциями по индексу
+  // maskUrls и detections должны быть в одинаковом порядке
+  const maskToDetectionMap = useMemo(() => {
+    const map = new Map<string, Detection>()
+    allMaskUrls.forEach((maskUrl, index) => {
+      if (detections[index]) {
+        map.set(maskUrl, detections[index])
+      }
+    })
+    return map
+  }, [allMaskUrls, detections])
+
+  // Фильтруем маски на основе выбранного фильтра
+  const filteredMaskUrls = useMemo(() => {
+    if (!activeFilter) {
+      return allMaskUrls
+    }
+
+    return allMaskUrls.filter((maskUrl) => {
+      const detection = maskToDetectionMap.get(maskUrl)
+      if (!detection) return false
+
+      switch (activeFilter) {
+        case 'critical':
+          return detection.damage_level > 3
+        case 'damage':
+          return detection.damage_level > 0 && detection.damage_level <= 3
+        case 'objects':
+          return detection.damage_level === 0
+        case 'custom':
+          return true
+        default:
+          return true
+      }
+    })
+  }, [allMaskUrls, activeFilter, maskToDetectionMap])
 
   const getRelativePosition = (event: MouseEvent<HTMLDivElement>) => {
     if (!canvasRef.current) {
@@ -226,7 +273,7 @@ export function PhotoEditorPage() {
             >
               <BasePhotoWrapper>
                 <BasePhoto src={imageUrl} alt="Редактируемое фото" draggable={false} />
-                {maskUrls.map((maskUrl, index) => (
+                {filteredMaskUrls.map((maskUrl, index) => (
                   <MaskImage key={`${maskUrl}-${index}`} src={maskUrl} alt="Маска" draggable={false} />
                 ))}
               </BasePhotoWrapper>
@@ -266,56 +313,81 @@ export function PhotoEditorPage() {
               </OverlayLayer>
             </CanvasSurface>
           </CanvasContainer>
-          <ToolsPanel>
-            <PanelLabel>Редактор</PanelLabel>
-            <ToolsStack>
-              <ToolButton
-                type="button"
-                onClick={() => setActiveTool('color')}
-                $active={activeTool === 'color'}
+          <ToolsColumn>
+            <ToolsPanel>
+              <UndoButton 
+                type="button" 
+                onClick={handleUndo} 
+                aria-label="Отменить последнее действие"
+                disabled={rectangles.length === 0 && texts.length === 0}
               >
-                <ToolIcon src={paletteIcon} alt="Выбор цвета" />
-              </ToolButton>
-              <ToolButton
-                type="button"
-                onClick={() => setActiveTool('rectangle')}
-                $active={activeTool === 'rectangle'}
-              >
-                <ToolIcon src={penIcon} alt="Нарисовать" />
-              </ToolButton>
-              <ToolButton
-                type="button"
-                onClick={() => setActiveTool('text')}
-                $active={activeTool === 'text'}
-              >
-                <ToolIcon src={textIcon} alt="Добавить текст" />
-              </ToolButton>
-            </ToolsStack>
-            <ActionButton type="button" onClick={handleUndo} aria-label="Отменить последнее действие">
-              <UndoIcon src={undoIcon} alt="" />
-            </ActionButton>
-            {activeTool === 'color' && (
-              <ColorPicker>
-                {colorOptions.map((color) => (
-                  <ColorSwatch
-                    key={color}
-                    type="button"
-                    $color={color}
-                    $selected={selectedColor === color}
-                    onClick={() => setSelectedColor(color)}
-                    aria-label={`Выбрать цвет ${color}`}
-                  />
-                ))}
-              </ColorPicker>
-            )}
-            <SelectedColor>
-              <SelectedColorPreview $color={selectedColor} />
-              <span>{selectedColor.toUpperCase()}</span>
-            </SelectedColor>
-            <SaveButton type="button" onClick={handleSave}>
-              <span>Сохранить</span>
-            </SaveButton>
-          </ToolsPanel>
+                <UndoIcon src={undoIcon} alt="" />
+                <UndoButtonText>Отменить</UndoButtonText>
+              </UndoButton>
+              <ToolsStack>
+                <ToolButton
+                  type="button"
+                  onClick={() => setIsColorPickerOpen(true)}
+                  $active={false}
+                >
+                  <ToolIconWrapper>
+                    <ToolIcon src={paletteIcon} alt="Выбор цвета" />
+                    <SelectedColorIndicator $color={selectedColor} />
+                  </ToolIconWrapper>
+                </ToolButton>
+                <ToolButton
+                  type="button"
+                  onClick={() => setActiveTool('rectangle')}
+                  $active={activeTool === 'rectangle'}
+                >
+                  <ToolIcon src={penIcon} alt="Нарисовать" />
+                </ToolButton>
+                <ToolButton
+                  type="button"
+                  onClick={() => setActiveTool('text')}
+                  $active={activeTool === 'text'}
+                >
+                  <ToolIcon src={textIcon} alt="Добавить текст" />
+                </ToolButton>
+              </ToolsStack>
+              <SaveButton type="button" onClick={handleSave}>
+                <span>Сохранить</span>
+              </SaveButton>
+            </ToolsPanel>
+            <PanelContainer>
+              <ProblemsTitle>Проблемы</ProblemsTitle>
+              <FilterButtons>
+                <FilterButton
+                  type="button"
+                  $active={activeFilter === 'critical'}
+                  onClick={() => setActiveFilter(activeFilter === 'critical' ? null : 'critical')}
+                >
+                  Критические проблемы
+                </FilterButton>
+                <FilterButton
+                  type="button"
+                  $active={activeFilter === 'damage'}
+                  onClick={() => setActiveFilter(activeFilter === 'damage' ? null : 'damage')}
+                >
+                  Повреждение
+                </FilterButton>
+                <FilterButton
+                  type="button"
+                  $active={activeFilter === 'objects'}
+                  onClick={() => setActiveFilter(activeFilter === 'objects' ? null : 'objects')}
+                >
+                  Объекты
+                </FilterButton>
+                <FilterButton
+                  type="button"
+                  $active={activeFilter === 'custom'}
+                  onClick={() => setActiveFilter(activeFilter === 'custom' ? null : 'custom')}
+                >
+                  Пользовательская маска
+                </FilterButton>
+              </FilterButtons>
+            </PanelContainer>
+          </ToolsColumn>
         </EditorBody>
         {textModalState && (
           <TextModalOverlay>
@@ -348,6 +420,34 @@ export function PhotoEditorPage() {
               </TextModalActions>
             </TextModal>
           </TextModalOverlay>
+        )}
+        {isColorPickerOpen && (
+          <ColorPickerOverlay onClick={() => setIsColorPickerOpen(false)}>
+            <ColorPickerModal onClick={(e) => e.stopPropagation()}>
+              <ColorPickerTitle>Выберите цвет</ColorPickerTitle>
+              <ColorPickerGrid>
+                {colorOptions.map((color) => (
+                  <ColorSwatch
+                    key={color}
+                    type="button"
+                    $color={color}
+                    $selected={selectedColor === color}
+                    $size={48}
+                    onClick={() => {
+                      setSelectedColor(color)
+                      setIsColorPickerOpen(false)
+                    }}
+                    aria-label={`Выбрать цвет ${color}`}
+                  />
+                ))}
+              </ColorPickerGrid>
+              <ColorPickerActions>
+                <ColorPickerButton type="button" onClick={() => setIsColorPickerOpen(false)}>
+                  Закрыть
+                </ColorPickerButton>
+              </ColorPickerActions>
+            </ColorPickerModal>
+          </ColorPickerOverlay>
         )}
       </EditorWrapper>
     </Content>
@@ -494,23 +594,70 @@ const TextMark = styled.span`
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 `
 
-const ToolsPanel = styled.aside`
+const ToolsColumn = styled.div`
   width: 200px;
-  background: #0e0c0a;
-  border-radius: 15px;
-  padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  overflow-y: auto;
 `
 
-const PanelLabel = styled.div`
+const ToolsPanel = styled.aside`
+  width: 100%;
+  background: #0e0c0a;
+  border-radius: 15px;
+  padding: 24px;
+  padding-bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: fit-content;
+`
+
+const PanelContainer = styled.div`
+  width: 100%;
+  background: #0e0c0a;
+  border-radius: 15px;
+  flex: 1;
+  min-height: 0;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+`
+
+const ProblemsTitle = styled.div`
+  width: 100%;
   color: #cac8c6;
   font-size: 18px;
   font-family: 'Inter', sans-serif;
   font-weight: 400;
-  text-align: center;
+  word-wrap: break-word;
+`
+
+const FilterButtons = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`
+
+const FilterButton = styled.button<{ $active: boolean }>`
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid ${({ $active }) => ($active ? '#ffdc34' : 'rgba(255, 220, 52, 0.35)')};
+  background: ${({ $active }) => ($active ? 'rgba(255, 220, 52, 0.15)' : 'transparent')};
+  color: ${({ $active }) => ($active ? '#ffdc34' : '#cac8c6')};
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 150ms ease;
+  text-align: left;
+
+  &:hover {
+    border-color: #ffdc34;
+    background: rgba(255, 220, 52, 0.1);
+  }
 `
 
 const ToolsStack = styled.div`
@@ -536,24 +683,44 @@ const ToolButton = styled.button<{ $active: boolean }>`
   }
 `
 
-const ActionButton = styled.button`
+const UndoButton = styled.button`
   width: 100%;
-  background: rgba(255, 220, 52, 0.05);
-  border: 1px solid rgba(255, 220, 52, 0.35);
+  background: rgba(255, 220, 52, 0.12);
+  border: 2px solid #ffdc34;
   border-radius: 12px;
-  height: 72px;
-  padding: 12px;
+  padding: 16px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   cursor: pointer;
-  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+  transition: all 150ms ease;
 
-  &:hover {
-    border-color: #ffdc34;
-    background: rgba(255, 220, 52, 0.12);
-    transform: translateY(-1px);
+  &:hover:not(:disabled) {
+    background: rgba(255, 220, 52, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 220, 52, 0.3);
   }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: rgba(255, 220, 52, 0.3);
+  }
+`
+
+const UndoButtonText = styled.span`
+  color: #ffdc34;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 `
 
 const UndoIcon = styled.img`
@@ -632,21 +799,36 @@ const TextModalButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
   }
 `
 
+const ToolIconWrapper = styled.div`
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
+
 const ToolIcon = styled.img`
   width: 48px;
   height: 48px;
   object-fit: contain;
 `
 
-const ColorPicker = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+const SelectedColorIndicator = styled.div<{ $color: string }>`
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: ${({ $color }) => $color};
+  border: 2px solid #0e0c0a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 `
 
-const ColorSwatch = styled.button<{ $color: string; $selected: boolean }>`
-  width: 36px;
-  height: 36px;
+const ColorSwatch = styled.button<{ $color: string; $selected: boolean; $size?: number }>`
+  width: ${({ $size }) => $size ?? 36}px;
+  height: ${({ $size }) => $size ?? 36}px;
   border-radius: 50%;
   border: 2px solid ${({ $selected }) => ($selected ? '#ffdc34' : 'transparent')};
   background: ${({ $color }) => $color};
@@ -658,27 +840,8 @@ const ColorSwatch = styled.button<{ $color: string; $selected: boolean }>`
   }
 `
 
-const SelectedColor = styled.div`
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: #cac8c6;
-  font-size: 14px;
-  font-family: 'Inter', sans-serif;
-`
-
-const SelectedColorPreview = styled.div<{ $color: string }>`
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: ${({ $color }) => $color};
-  border: 1px solid rgba(255, 255, 255, 0.25);
-`
-
 const SaveButton = styled.button`
   width: 100%;
-  margin-top: 12px;
   border: none;
   border-radius: 10px;
   background: #ffdc34;
@@ -688,16 +851,75 @@ const SaveButton = styled.button`
   font-weight: 400;
   padding: 14px 0;
   cursor: pointer;
-  box-shadow: 0 18px 28px rgba(255, 220, 52, 0.3);
-  transition: transform 150ms ease, box-shadow 150ms ease;
+  transition: transform 150ms ease;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 24px 36px rgba(255, 220, 52, 0.35);
   }
 
   span {
     word-wrap: break-word;
+  }
+`
+
+const ColorPickerOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  backdrop-filter: blur(4px);
+`
+
+const ColorPickerModal = styled.div`
+  width: 400px;
+  padding: 28px;
+  border-radius: 20px;
+  background: #0e0c0a;
+  border: 1px solid #2a2723;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+`
+
+const ColorPickerTitle = styled.h3`
+  margin: 0;
+  font-size: 20px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  color: #ffffff;
+`
+
+const ColorPickerGrid = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+`
+
+const ColorPickerActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+`
+
+const ColorPickerButton = styled.button`
+  min-width: 120px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid #3a3834;
+  background: transparent;
+  color: #ffffff;
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  cursor: pointer;
+  transition: filter 150ms ease;
+
+  &:hover {
+    filter: brightness(1.05);
+    border-color: #ffdc34;
   }
 `
 
