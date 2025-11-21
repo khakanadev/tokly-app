@@ -5,19 +5,22 @@ import { Content } from '../components/Layout'
 import { Header } from '../components/Header'
 import { type Lap } from '../components/MainHeader'
 import greenDot from '../assets/green.svg'
-import blueDot from '../assets/blue.svg'
-import orangeDot from '../assets/orange.svg'
+import redDot from '../assets/red.svg'
+import orangesDot from '../assets/oranges.svg'
 import yellowDot from '../assets/yellow.svg'
 import dividerLine from '../assets/Line 9.svg'
 import {
   getLaps,
   getGroupsFromLapData,
   getGroupImages,
+  getGroupsByLap,
   type LapsResponse,
   type GroupImagesResponse,
   type Detection,
+  type Group,
   API_BASE_URL,
 } from '../services/api'
+import { sectionClassMap } from '../constants/componentSections'
 
 type LapIssuesPageProps = {
   laps: Lap[]
@@ -34,15 +37,14 @@ const ContentSection = styled.section`
 
 const MetricsContainer = styled.div`
   width: 100%;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  column-gap: 48px;
-  row-gap: 24px;
+  display: flex;
+  justify-content: center;
   align-items: flex-start;
+  gap: 30px;
+  flex-wrap: nowrap;
 `
 
 const MetricItem = styled.div`
-  flex: 1 1 0;
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -100,12 +102,12 @@ const FiltersGrid = styled.div`
   gap: 24px;
 `
 
-const FilterButton = styled.button`
+const FilterButton = styled.button<{ $active?: boolean }>`
   width: 100%;
   border-radius: 48px;
   border: 2px solid #ffe670;
-  background: #1b1b1b;
-  color: #ffe670;
+  background: ${({ $active }) => ($active ? '#ffe670' : '#1b1b1b')};
+  color: ${({ $active }) => ($active ? '#1b1b1b' : '#ffe670')};
   font-size: 22px;
   font-family: 'Nunito', sans-serif;
   font-weight: 400;
@@ -139,12 +141,12 @@ const PhotosGrid = styled.div`
   gap: 24px;
 `
 
-const PhotoCard = styled.div`
+const PhotoCard = styled.div<{ $borderColor: string }>`
   position: relative;
   width: 100%;
   padding-top: 64%;
   border-radius: 16px;
-  border: 1px solid rgba(255, 220, 52, 0.3);
+  border: 3px solid ${({ $borderColor }) => $borderColor};
   overflow: hidden;
   background: rgba(255, 255, 255, 0.02);
   cursor: zoom-in;
@@ -185,6 +187,108 @@ const PhotoStatusText = styled.div`
   font-family: 'Inter', sans-serif;
 `
 
+const PhotoSkeleton = styled.div`
+  position: relative;
+  width: 100%;
+  padding-top: 64%;
+  border-radius: 16px;
+  border: 3px solid rgba(255, 220, 52, 0.3);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  animation: pulse 2s ease-in-out infinite;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 220, 52, 0.2),
+      transparent
+    );
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      left: -100%;
+    }
+    100% {
+      left: 100%;
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 0.6;
+      border-color: rgba(255, 220, 52, 0.3);
+    }
+    50% {
+      opacity: 0.8;
+      border-color: rgba(255, 220, 52, 0.5);
+    }
+  }
+`
+
+const MetricSkeleton = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  opacity: 0.6;
+  width: 100%;
+`
+
+const SkeletonIcon = styled.div`
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 220, 52, 0.4);
+  flex-shrink: 0;
+  animation: pulse 1.5s ease-in-out infinite;
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+`
+
+const SkeletonText = styled.div`
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  animation: pulse 1.5s ease-in-out infinite;
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 0.6;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+`
+
+const SkeletonLabel = styled(SkeletonText)`
+  width: 100%;
+  max-width: 180px;
+  margin-bottom: 4px;
+  height: 28px;
+`
+
+const SkeletonValue = styled(SkeletonText)`
+  width: 100%;
+  max-width: 80px;
+  height: 24px;
+`
+
 const MagnifierLens = styled.div<{ $visible: boolean }>`
   position: absolute;
   pointer-events: none;
@@ -218,28 +322,18 @@ const LensMask = styled(LensImage)`
   opacity: 0.6;
 `
 
-const metrics = [
-  {
-    icon: greenDot,
-    label: 'Фото',
-    value: '600',
-  },
-  {
-    icon: blueDot,
-    label: 'Всего объектов',
-    value: '654',
-  },
-  {
-    icon: orangeDot,
-    label: 'Всего повреждений',
-    value: '46',
-  },
-  {
-    icon: yellowDot,
-    label: 'Последний осмотр',
-    value: '14.02.2025',
-  },
-]
+// Функция форматирования даты
+const formatDate = (dateString: string): string => {
+  try {
+    const date = new Date(dateString)
+    const day = date.getDate().toString().padStart(2, '0')
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const year = date.getFullYear()
+    return `${day}.${month}.${year}`
+  } catch {
+    return dateString
+  }
+}
 
 const filterItems = [
   'Все фото',
@@ -247,11 +341,22 @@ const filterItems = [
   'Гирлянда стекло',
   'Гирлянда полимер',
   'Траверс',
-  'Изолятор-',
-  'Изолятор+',
-  'Гнезда',
-  'Таблички',
+  'Критическая поломка',
+  'Поломка',
+  'Птичьи гнезда',
 ]
+
+// Маппинг названий фильтров на id секций
+const filterToSectionId: Record<string, string> = {
+  'Все фото': '',
+  'Виброгаситель': 'vibration_damper',
+  'Гирлянда стекло': 'glass_garland',
+  'Гирлянда полимер': 'polymer_garland',
+  'Траверс': 'travers',
+  'Критическая поломка': 'isolator_minus',
+  'Поломка': 'isolator_plus',
+  'Птичьи гнезда': 'nests',
+}
 
 const MASK_BASE_URL = API_BASE_URL
 const IMAGE_WIDTH = 286
@@ -262,17 +367,32 @@ const MAGNIFIER_ZOOM = 3
 type ImageWithDetections = {
   imageUid: string
   detections: Detection[]
+  maxDamageLevel: number
+}
+
+// Функция для получения цвета обводки на основе максимального damage_level
+const getBorderColor = (maxDamageLevel: number): string => {
+  if (maxDamageLevel === 0) {
+    return '#FFDC34' // желтая
+  } else if (maxDamageLevel > 0 && maxDamageLevel <= 3) {
+    return '#FF8C42' // оранжевая
+  } else {
+    return '#DF6F6D' // красная
+  }
 }
 
 function ImageWithMasks({
   imageUrl,
   detections,
+  maxDamageLevel,
   onOpenEditor,
 }: {
   imageUrl: string
   detections: Detection[]
+  maxDamageLevel: number
   onOpenEditor: () => void
 }) {
+  const borderColor = getBorderColor(maxDamageLevel)
   const [lensState, setLensState] = useState({
     visible: false,
     x: IMAGE_WIDTH / 2,
@@ -310,6 +430,7 @@ function ImageWithMasks({
 
   return (
     <PhotoCard
+      $borderColor={borderColor}
       style={{ paddingTop: `${(IMAGE_HEIGHT / IMAGE_WIDTH) * 100}%` }}
       onClick={onOpenEditor}
       onMouseMove={handleMouseMove}
@@ -383,15 +504,29 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
   const [currentLap, setCurrentLap] = useState<Lap | null>(laps.find((lap) => lap.id === lapId) || null)
   const [groupId, setGroupId] = useState<number | null>(null)
   const [isLapLoading, setIsLapLoading] = useState(true)
-  const [images, setImages] = useState<ImageWithDetections[]>([])
   const [isImagesLoading, setIsImagesLoading] = useState(false)
   const [imagesError, setImagesError] = useState<string | null>(null)
+  const [groupData, setGroupData] = useState<GroupImagesResponse | null>(null)
+  const [currentGroup, setCurrentGroup] = useState<Group | null>(null)
+  const [selectedFilter, setSelectedFilter] = useState<string>('Все фото')
+  const [allImages, setAllImages] = useState<ImageWithDetections[]>([])
 
-  const title = isLapLoading
-    ? 'Загрузка ЛЭП...'
-    : currentLap
-      ? `Фотографии ЛЭП`
-      : 'ЛЭП не найдена'
+  const getTitle = () => {
+    if (isLapLoading) return 'Загрузка ЛЭП...'
+    if (!currentLap || !lapId) return 'ЛЭП не найдена'
+    
+    // Проверяем, является ли lapId числом
+    const lapIdNumber = Number.parseInt(lapId, 10)
+    const isNumeric = !Number.isNaN(lapIdNumber) && lapIdNumber.toString() === lapId
+    
+    if (isNumeric) {
+      return `ЛЭП №${lapId} - Неисправности`
+    } else {
+      return `ЛЭП ${lapId} - Неисправности`
+    }
+  }
+
+  const title = getTitle()
 
   useEffect(() => {
     const loadLapAndGroup = async () => {
@@ -452,11 +587,21 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
 
       try {
         const data: GroupImagesResponse = await getGroupImages(groupId)
-        const mappedImages: ImageWithDetections[] = Object.entries(data.images).map(([imageUid, detections]) => ({
-          imageUid,
-          detections,
-        }))
-        setImages(mappedImages)
+        setGroupData(data)
+        const mappedImages: ImageWithDetections[] = Object.entries(data.images).map(([imageUid, detections]) => {
+          // Вычисляем максимальный damage_level для этого изображения
+          const maxDamageLevel = detections.length > 0
+            ? Math.max(...detections.map((d) => d.damage_level))
+            : 0
+          return {
+            imageUid,
+            detections,
+            maxDamageLevel,
+          }
+        })
+        // Сортируем по максимальному damage_level от большего к меньшему
+        mappedImages.sort((a, b) => b.maxDamageLevel - a.maxDamageLevel)
+        setAllImages(mappedImages)
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Не удалось загрузить фотографии'
         setImagesError(message)
@@ -468,42 +613,178 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
     void loadImages()
   }, [groupId])
 
+  useEffect(() => {
+    const loadGroupInfo = async () => {
+      if (!groupId || !lapId) return
+
+      try {
+        const groups = await getGroupsByLap(lapId)
+        const foundGroup = groups.find((g) => g.id === groupId)
+        if (foundGroup) {
+          setCurrentGroup(foundGroup)
+        }
+      } catch (error) {
+        console.error('[LapIssuesPage] Failed to load group info:', error)
+      }
+    }
+
+    void loadGroupInfo()
+  }, [groupId, lapId])
+
+  // Вычисление метрик из реальных данных
+  const getMetrics = () => {
+    if (!groupData) {
+      return [
+        {
+          icon: greenDot,
+          label: 'Всего фото',
+          value: '-',
+        },
+        {
+          icon: redDot,
+          label: 'Критических повреждений',
+          value: '-',
+        },
+        {
+          icon: orangesDot,
+          label: 'Простых повреждений',
+          value: '-',
+        },
+        {
+          icon: yellowDot,
+          label: 'Последний осмотр',
+          value: '-',
+        },
+      ]
+    }
+
+    // Подсчет критических повреждений (damage_level > 3)
+    let criticalDamagesCount = 0
+    // Подсчет простых повреждений (damage_level > 0 && <= 3)
+    let simpleDamagesCount = 0
+    
+    Object.values(groupData.images).forEach((detections) => {
+      detections.forEach((detection) => {
+        if (detection.damage_level > 3) {
+          criticalDamagesCount++
+        } else if (detection.damage_level > 0 && detection.damage_level <= 3) {
+          simpleDamagesCount++
+        }
+      })
+    })
+
+    return [
+      {
+        icon: greenDot,
+        label: 'Всего фото',
+        value: groupData.image_count.toString(),
+      },
+      {
+        icon: redDot,
+        label: 'Критических повреждений',
+        value: criticalDamagesCount.toString(),
+      },
+      {
+        icon: orangesDot,
+        label: 'Простых повреждений',
+        value: simpleDamagesCount.toString(),
+      },
+      {
+        icon: yellowDot,
+        label: 'Последний осмотр',
+        value: currentGroup ? formatDate(currentGroup.create_at) : '-',
+      },
+    ]
+  }
+
+  const metrics = getMetrics()
+
+  // Функция фильтрации изображений по выбранному фильтру
+  const getFilteredImages = (): ImageWithDetections[] => {
+    if (selectedFilter === 'Все фото') {
+      return allImages
+    }
+
+    const sectionId = filterToSectionId[selectedFilter]
+    if (!sectionId) {
+      return allImages
+    }
+
+    const allowedClasses = sectionClassMap[sectionId]
+    if (!allowedClasses || allowedClasses.length === 0) {
+      return allImages
+    }
+
+    // Фильтруем изображения, оставляя только те, у которых есть детекции с соответствующим классом
+    return allImages.filter((image) => {
+      return image.detections.some((detection) => 
+        allowedClasses.includes(detection.class)
+      )
+    })
+  }
+
+  const filteredImages = getFilteredImages()
+
   return (
     <>
       <Header title={title} titleColor="#CAC8C6" titleFontSize="28px" titleFontWeight="400" />
       <Content>
         <ContentSection>
           <MetricsContainer>
-            {metrics.map((metric) => (
-              <MetricItem key={metric.label}>
-                <MetricIcon src={metric.icon} alt="" />
-                <MetricTextGroup>
-                  <MetricLabel>{metric.label}</MetricLabel>
-                  <MetricValue>{metric.value}</MetricValue>
-                </MetricTextGroup>
-              </MetricItem>
-            ))}
+            {isLapLoading || isImagesLoading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <MetricSkeleton key={`metric-skeleton-${index}`}>
+                  <SkeletonIcon />
+                  <MetricTextGroup style={{ width: '100%', alignItems: 'center', textAlign: 'center' }}>
+                    <SkeletonLabel />
+                    <SkeletonValue />
+                  </MetricTextGroup>
+                </MetricSkeleton>
+              ))
+            ) : (
+              metrics.map((metric) => (
+                <MetricItem key={metric.label}>
+                  <MetricIcon src={metric.icon} alt="" />
+                  <MetricTextGroup>
+                    <MetricLabel>{metric.label}</MetricLabel>
+                    <MetricValue>{metric.value}</MetricValue>
+                  </MetricTextGroup>
+                </MetricItem>
+              ))
+            )}
           </MetricsContainer>
           <Divider src={dividerLine} alt="" />
           <FiltersTitle>Фильтры</FiltersTitle>
           <FiltersGrid>
             {filterItems.map((filter) => (
-              <FilterButton key={filter}>{filter}</FilterButton>
+              <FilterButton
+                key={filter}
+                $active={selectedFilter === filter}
+                onClick={() => setSelectedFilter(filter)}
+              >
+                {filter}
+              </FilterButton>
             ))}
           </FiltersGrid>
           <PhotosTitle>Фотографии</PhotosTitle>
-          {isImagesLoading && <PhotoStatusText>Загрузка фотографий...</PhotoStatusText>}
-          {imagesError && <PhotoStatusText style={{ color: '#DF6F6D' }}>{imagesError}</PhotoStatusText>}
-          {!isImagesLoading && !imagesError && images.length === 0 && (
-            <PhotoStatusText>Фотографии не найдены</PhotoStatusText>
-          )}
-          {!isImagesLoading && !imagesError && images.length > 0 && (
+          {isImagesLoading || (allImages.length === 0 && !imagesError && !groupData) ? (
             <PhotosGrid>
-              {images.map((image) => (
+              {Array.from({ length: 6 }).map((_, index) => (
+                <PhotoSkeleton key={`skeleton-${index}`} />
+              ))}
+            </PhotosGrid>
+          ) : imagesError ? (
+            <PhotoStatusText style={{ color: '#DF6F6D' }}>{imagesError}</PhotoStatusText>
+          ) : filteredImages.length === 0 && groupData ? (
+            <PhotoStatusText>Фотографии не найдены</PhotoStatusText>
+          ) : (
+            <PhotosGrid>
+              {filteredImages.map((image) => (
                 <ImageWithMasks
                   key={image.imageUid}
                   imageUrl={`${API_BASE_URL}/image/${groupId}/${image.imageUid}.jpeg`}
                   detections={image.detections}
+                  maxDamageLevel={image.maxDamageLevel}
                   onOpenEditor={() =>
                     navigate('/editor', {
                       state: {

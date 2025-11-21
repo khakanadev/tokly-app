@@ -6,7 +6,6 @@ export const componentSections = [
   { id: 'isolator_minus', title: 'Изолятор-', categoryId: 2280000 },
   { id: 'isolator_plus', title: 'Изолятор+', categoryId: 2280001 },
   { id: 'nests', title: 'Гнезда', categoryId: 2220001 },
-  { id: 'plates', title: 'Таблички', categoryId: 2270001 },
 ] as const
 
 export const categoryClassMap: Record<string, number> = {
