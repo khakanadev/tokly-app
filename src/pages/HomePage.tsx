@@ -9,7 +9,6 @@ type HomePageProps = {
   onDelete: (index: number) => void
   onEdit: (index: number) => void
   onSelectLap: (lap: Lap) => void
-  onAddLap: () => void
 }
 
 export function HomePage({
@@ -19,37 +18,10 @@ export function HomePage({
   onDelete,
   onEdit,
   onSelectLap,
-  onAddLap,
 }: HomePageProps) {
-  const resolveIndex = (lap: Lap) => laps.findIndex((item) => item.id === lap.id)
-
-  const handleHeaderSelectLap = (lap: Lap) => {
-    onSelectLap(lap)
-  }
-
-  const handleHeaderEditLap = (lap: Lap) => {
-    const index = resolveIndex(lap)
-    if (index >= 0) {
-      onEdit(index)
-    }
-  }
-
-  const handleHeaderDeleteLap = (lap: Lap) => {
-    const index = resolveIndex(lap)
-    if (index >= 0) {
-      onDelete(index)
-    }
-  }
-
   return (
     <>
-      <Header
-        laps={laps}
-        onAddLap={onAddLap}
-        onSelectLap={handleHeaderSelectLap}
-        onEditLap={handleHeaderEditLap}
-        onDeleteLap={handleHeaderDeleteLap}
-      />
+      <Header />
       <Content>
         <MainHeader
           laps={laps}

@@ -227,7 +227,7 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
   }
 
   const menuItems = [
-    { label: 'Главная', path: '/', disabled: false },
+    { label: 'Загрузка', path: '/', disabled: false },
     { label: 'Список ЛЭП', path: '/home', disabled: false },
     { label: 'История', path: lapId ? `/line/${lapId}` : '/home', disabled: !lapId },
     { label: 'Неисправности', path: lapId ? `/line/${lapId}/issues` : '/home', disabled: !lapId },

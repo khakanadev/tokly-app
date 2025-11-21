@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import styled from 'styled-components'
 import trashIcon from '../assets/Trash Can.svg'
-import pencilIcon from '../assets/Edit Pencil.svg'
+import settingsIcon from '../assets/settings.svg'
 
 export type Lap = {
   id: string
@@ -436,10 +436,12 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
               {currentLaps.map((lap, index) => {
                 const getStatusColors = () => {
                   if (lap.have_problems === true) {
-                    return { bg: '#DE6F6D', border: '#C85A58' } // красный
+                    return { bg: '#de6f6d', border: '#c85a58', label: 'проблема' }
                   }
-                  // Если true или undefined - желтая подложка (как была)
-                  return { bg: '#FFF5C7', border: '#FFDC34' } // желтый
+                  if (lap.have_problems === false) {
+                    return { bg: '#dcf7d8', border: '#68c567', label: 'годен' }
+                  }
+                  return { bg: '#fff5c7', border: '#ffdc34', label: 'статус' }
                 }
                 const colors = getStatusColors()
                 return (
@@ -447,14 +449,14 @@ export const MainHeader = ({ laps, onDelete, onEdit, currentPage, onPageChange, 
                     <RowButton type="button" onClick={() => handleSelect(index)}>
                       <LapInfo>ЛЭП № {lap.label}</LapInfo>
                       <Status $bgColor={colors.bg} $borderColor={colors.border}>
-                        {lap.have_problems === false ? 'норма' : lap.have_problems === true ? 'не норма' : 'статус'}
+                        {lap.have_problems === false ? 'годен' : lap.have_problems === true ? 'проблема' : 'статус'}
                       </Status>
                     </RowButton>
                     <DeleteButton type="button" onClick={() => handleDelete(index)}>
                       <Icon src={trashIcon} alt="Удалить" />
                     </DeleteButton>
                     <EditButton type="button" onClick={() => handleEdit(index)}>
-                      <Icon src={pencilIcon} alt="Редактировать" />
+                      <Icon src={settingsIcon} alt="Настройки" />
                     </EditButton>
                   </Row>
                 )

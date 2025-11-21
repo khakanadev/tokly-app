@@ -168,7 +168,7 @@ function App() {
   }
 
   const handleSelectLap = (lap: Lap) => {
-    navigate(`/line/${lap.id}`)
+    navigate(`/line/${lap.id}/issues`)
   }
 
   return (

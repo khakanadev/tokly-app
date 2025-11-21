@@ -289,13 +289,13 @@ export const WelcomeLapModal = ({ isOpen, onClose, file, files, onSuccess }: Wel
     <Overlay>
       <Modal>
         <Form onSubmit={handleSubmit}>
-          <Title>Добавить ЛЭП</Title>
+          <Title>Добавить маршрут</Title>
           <InputWrapper>
             <Input
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              placeholder="ID линии"
+              placeholder="Введите название"
               value={value}
               onChange={handleChange}
               autoFocus
