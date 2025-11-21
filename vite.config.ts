@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://91.109.146.20:8080',
+        target: 'https://lusciously-magnetic-lamprey.cloudpub.ru/',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },

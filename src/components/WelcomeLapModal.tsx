@@ -10,7 +10,7 @@ type WelcomeLapModalProps = {
   onSuccess?: (lapId: string) => Promise<void> | void
 }
 
-const Overlay = styled.div`
+const  Overlay = styled.div`
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
@@ -99,12 +99,6 @@ const ProgressBar = styled.div<{ $value: number }>`
   background: #ffdc34;
   width: ${({ $value }) => `${$value}%`};
   transition: width 200ms ease;
-`
-
-const ProgressLabel = styled.span`
-  font-size: 13px;
-  color: #cac8c6;
-  font-family: 'Inter', sans-serif;
 `
 
 const ProgressPercent = styled.div`

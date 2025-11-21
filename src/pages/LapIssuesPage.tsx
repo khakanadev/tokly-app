@@ -1,15 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { Content } from '../components/Layout'
 import { Header } from '../components/Header'
 import { type Lap } from '../components/MainHeader'
 import { componentSections, sectionClassMap } from '../constants/componentSections'
-import { getGroupImages, getLaps, getGroupsFromLapData, type GroupImagesResponse, type LapsResponse, type Detection } from '../services/api'
-import { API_BASE_URL } from '../services/api'
+import {
+  getGroupImages,
+  getLaps,
+  getGroupsFromLapData,
+  type GroupImagesResponse,
+  type LapsResponse,
+  type Detection,
+  API_BASE_URL,
+} from '../services/api'
 import arrowIcon from '../assets/arrow.svg'
 
-const MASK_BASE_URL = 'http://91.109.146.20:8080'
+const MASK_BASE_URL = API_BASE_URL
 
 const ComponentSectionsWrapper = styled.section`
   width: 100%;
@@ -91,13 +98,19 @@ const PhotoPlaceholder = styled.div`
   letter-spacing: 0.8px;
 `
 
+const IMAGE_WIDTH = 286
+const IMAGE_HEIGHT = 184
+const MAGNIFIER_SIZE = 180
+const MAGNIFIER_ZOOM = 3
+
 const ImageContainer = styled.div`
   position: relative;
-  width: 286px;
-  height: 184px;
+  width: ${IMAGE_WIDTH}px;
+  height: ${IMAGE_HEIGHT}px;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(255, 220, 52, 0.3);
+  cursor: zoom-in;
 `
 
 const BaseImage = styled.img`
@@ -126,6 +139,39 @@ const LoadingText = styled.div`
   margin-top: 24px;
 `
 
+const MagnifierLens = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 220, 52, 0.85);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  transition: opacity 120ms ease;
+  opacity: ${({ $visible }) => ($visible ? 1 : 0)};
+  background: rgba(14, 12, 10, 0.85);
+  z-index: 5;
+`
+
+const LensContent = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
+`
+
+const LensImage = styled.img`
+  position: absolute;
+  top: 0;
+  left: 0;
+  object-fit: cover;
+  user-select: none;
+  pointer-events: none;
+`
+
+const LensMask = styled(LensImage)`
+  mix-blend-mode: multiply;
+  opacity: 0.6;
+`
+
 type LapIssuesPageProps = {
   laps: Lap[]
 }
@@ -149,8 +195,43 @@ type ImageWithMasksProps = {
 }
 
 function ImageWithMasks({ imageUrl, detections }: ImageWithMasksProps) {
+  const [lensState, setLensState] = useState({
+    visible: false,
+    x: IMAGE_WIDTH / 2,
+    y: IMAGE_HEIGHT / 2,
+    width: IMAGE_WIDTH,
+    height: IMAGE_HEIGHT,
+  })
+
+  const handleMouseMove = (event: MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = Math.min(Math.max(event.clientX - rect.left, 0), rect.width)
+    const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height)
+
+    setLensState({
+      visible: true,
+      x,
+      y,
+      width: rect.width,
+      height: rect.height,
+    })
+  }
+
+  const handleMouseLeave = () => {
+    setLensState((prev) => ({
+      ...prev,
+      visible: false,
+    }))
+  }
+
+  const lensHalf = MAGNIFIER_SIZE / 2
+  const scaledWidth = lensState.width * MAGNIFIER_ZOOM
+  const scaledHeight = lensState.height * MAGNIFIER_ZOOM
+  const offsetX = lensState.x * MAGNIFIER_ZOOM - lensHalf
+  const offsetY = lensState.y * MAGNIFIER_ZOOM - lensHalf
+
   return (
-    <ImageContainer>
+    <ImageContainer onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
       <BaseImage src={imageUrl} alt="Фото" loading="lazy" />
       {detections.map((detection) => (
         <MaskLayer
@@ -159,6 +240,41 @@ function ImageWithMasks({ imageUrl, detections }: ImageWithMasksProps) {
           alt={`Маска для проблемы ${detection.id}`}
         />
       ))}
+      <MagnifierLens
+        $visible={lensState.visible}
+        style={{
+          width: `${MAGNIFIER_SIZE}px`,
+          height: `${MAGNIFIER_SIZE}px`,
+          top: `${lensState.y - lensHalf}px`,
+          left: `${lensState.x - lensHalf}px`,
+        }}
+      >
+        <LensContent>
+          <LensImage
+            src={imageUrl}
+            alt=""
+            style={{
+              width: `${scaledWidth}px`,
+              height: `${scaledHeight}px`,
+              left: `${-offsetX}px`,
+              top: `${-offsetY}px`,
+            }}
+          />
+          {detections.map((detection) => (
+            <LensMask
+              key={`lens-${detection.id}`}
+              src={`${MASK_BASE_URL}/mask/${detection.id}.png`}
+              alt=""
+              style={{
+                width: `${scaledWidth}px`,
+                height: `${scaledHeight}px`,
+                left: `${-offsetX}px`,
+                top: `${-offsetY}px`,
+              }}
+            />
+          ))}
+        </LensContent>
+      </MagnifierLens>
     </ImageContainer>
   )
 }

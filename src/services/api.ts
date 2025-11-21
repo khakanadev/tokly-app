@@ -1,4 +1,4 @@
-export const API_BASE_URL = import.meta.env.DEV ? '/api' : 'http://91.109.146.20:8080'
+export const API_BASE_URL = import.meta.env.DEV ? '/api' : 'https://lusciously-magnetic-lamprey.cloudpub.ru/'
 
 console.log('[API] Base URL:', API_BASE_URL, '(DEV:', import.meta.env.DEV, ')')
 
