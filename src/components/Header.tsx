@@ -6,6 +6,9 @@ import toklyLogo from '../assets/tokly11.svg'
 type HeaderProps = {
   title?: string
   subtitle?: string
+  titleColor?: string
+  titleFontSize?: string
+  titleFontWeight?: number | string
 }
 
 const HeaderWrapper = styled.div`
@@ -41,11 +44,15 @@ const TitleWrapper = styled.div`
   font-family: 'Nunito', sans-serif;
 `
 
-const Title = styled.span`
-  font-size: 40px;
-  font-weight: 400;
+const Title = styled.span<{
+  $color?: string
+  $fontSize?: string
+  $fontWeight?: number | string
+}>`
+  font-size: ${({ $fontSize }) => $fontSize ?? '40px'};
+  font-weight: ${({ $fontWeight }) => $fontWeight ?? 400};
   line-height: 1.2;
-  color: white;
+  color: ${({ $color }) => $color ?? 'white'};
   word-wrap: break-word;
 `
 
@@ -183,7 +190,7 @@ const MenuButton = styled.button`
   }
 `
 
-export const Header = ({ title, subtitle }: HeaderProps) => {
+export const Header = ({ title, subtitle, titleColor, titleFontSize, titleFontWeight }: HeaderProps) => {
   const navigate = useNavigate()
   const params = useParams()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -249,9 +256,9 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
           </BurgerButton>
           {isMenuOpen && (
             <DropdownMenu ref={menuRef} $isOpen={isMenuOpen}>
-              {menuItems.map((item) => (
+              {menuItems.map((item, index) => (
                 <MenuButton
-                  key={item.path}
+                  key={`${item.path}-${item.label}-${index}`}
                   type="button"
                   onClick={() => handleNavigate(item.path)}
                   disabled={item.disabled}
@@ -264,7 +271,9 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
         </div>
         {title ? (
           <TitleWrapper>
-            <Title>{title}</Title>
+          <Title $color={titleColor} $fontSize={titleFontSize} $fontWeight={titleFontWeight}>
+            {title}
+          </Title>
             {subtitle && <Subtitle>{subtitle}</Subtitle>}
           </TitleWrapper>
         ) : null}

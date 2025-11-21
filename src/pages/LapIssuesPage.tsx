@@ -4,144 +4,177 @@ import styled from 'styled-components'
 import { Content } from '../components/Layout'
 import { Header } from '../components/Header'
 import { type Lap } from '../components/MainHeader'
-import { componentSections, sectionClassMap } from '../constants/componentSections'
+import greenDot from '../assets/green.svg'
+import blueDot from '../assets/blue.svg'
+import orangeDot from '../assets/orange.svg'
+import yellowDot from '../assets/yellow.svg'
+import dividerLine from '../assets/Line 9.svg'
 import {
-  getGroupImages,
   getLaps,
   getGroupsFromLapData,
-  type GroupImagesResponse,
+  getGroupImages,
   type LapsResponse,
+  type GroupImagesResponse,
   type Detection,
   API_BASE_URL,
 } from '../services/api'
-import arrowIcon from '../assets/arrow.svg'
 
-const MASK_BASE_URL = API_BASE_URL
+type LapIssuesPageProps = {
+  laps: Lap[]
+}
 
-const ComponentSectionsWrapper = styled.section`
+const ContentSection = styled.section`
   width: 100%;
   border-radius: 15px;
   background: #0e0c0a;
-  padding: 16px 32px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
 `
 
-const SectionWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  padding: 16px 0;
-`
-
-const SectionDivider = styled.div`
-  height: 1px;
-  background: #ffdc34;
-  width: 100%;
-`
-
-const SectionHeader = styled.button`
+const MetricsContainer = styled.div`
   width: 100%;
   display: flex;
-  align-items: center;
+  flex-wrap: nowrap;
   justify-content: space-between;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-size: 22px;
-  font-weight: 500;
-  color: #fff;
-  font-family: 'Inter', sans-serif;
-  text-align: left;
-  margin-bottom: 10px;
+  gap: 32px;
+  align-items: flex-start;
 `
 
-const SectionHeaderRight = styled.div`
+const MetricItem = styled.div`
+  flex: 1 1 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
 `
 
-const ToggleText = styled.span`
-  font-size: 16px;
-  font-weight: 400;
-  color: #9d9b97;
+const MetricIcon = styled.img`
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 6px;
+`
+
+const MetricTextGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`
+
+const MetricLabel = styled.span`
+  font-size: 28px;
+  font-weight: 300;
+  color: #ffffff;
   font-family: 'Inter', sans-serif;
+  white-space: nowrap;
 `
 
-const ArrowIcon = styled.img<{ $isOpen: boolean }>`
-  width: 32px;
-  height: 20px;
-  transition: transform 200ms ease;
-  transform: rotate(${({ $isOpen }) => ($isOpen ? '0deg' : '180deg')});
+const MetricValue = styled.span`
+  font-size: 24px;
+  font-weight: 300;
+  color: #cac8c6;
+  font-family: 'Inter', sans-serif;
+  white-space: nowrap;
 `
 
-const PhotoPlaceholderGrid = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 35px;
-  margin-top: 24px;
-`
-
-const PhotoPlaceholder = styled.div`
-  width: 286px;
-  height: 184px;
-  border-radius: 12px;
-  border: 1px dashed rgba(255, 220, 52, 0.35);
-  background: linear-gradient(135deg, rgba(255, 220, 52, 0.12), rgba(255, 220, 52, 0.02));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffdc34;
-  font-size: 16px;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-`
-
-const IMAGE_WIDTH = 286
-const IMAGE_HEIGHT = 184
-const MAGNIFIER_SIZE = 180
-const MAGNIFIER_ZOOM = 3
-
-const ImageContainer = styled.div`
-  position: relative;
-  width: ${IMAGE_WIDTH}px;
-  height: ${IMAGE_HEIGHT}px;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 220, 52, 0.3);
-  cursor: zoom-in;
-`
-
-const BaseImage = styled.img`
+const Divider = styled.img`
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+  margin-top: 27px;
 `
 
-const MaskLayer = styled.img`
+const FiltersTitle = styled.h2`
+  margin-top: 32px;
+  margin-bottom: 24px;
+  width: 100%;
+  color: #ffffff;
+  font-size: 32px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 400;
+  word-wrap: break-word;
+`
+
+const FiltersGrid = styled.div`
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+`
+
+const FilterButton = styled.button`
+  width: 100%;
+  border-radius: 74px;
+  border: 2px solid #ffe670;
+  background: #fffce4;
+  color: #1b1b1b;
+  font-size: 28px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 400;
+  padding: 16px 24px;
+  cursor: pointer;
+`
+
+const PhotosTitle = styled.h2`
+  margin-top: 40px;
+  margin-bottom: 24px;
+  width: 100%;
+  color: #ffffff;
+  font-size: 32px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 400;
+  word-wrap: break-word;
+`
+
+const PhotosGrid = styled.div`
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px;
+`
+
+const PhotoCard = styled.div`
+  position: relative;
+  width: 100%;
+  padding-top: 64%;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 220, 52, 0.3);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: zoom-in;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  }
+`
+
+const PhotoBase = styled.img`
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  pointer-events: none;
+  display: block;
+`
+
+const PhotoMask = styled.img`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   mix-blend-mode: multiply;
   opacity: 0.6;
+  pointer-events: none;
 `
 
-const LoadingText = styled.div`
-  color: #9d9b97;
-  font-size: 16px;
+const PhotoStatusText = styled.div`
+  margin-top: 12px;
+  color: #cac8c6;
+  font-size: 18px;
   font-family: 'Inter', sans-serif;
-  margin-top: 24px;
-`
-
-const NoPhotosText = styled(LoadingText)`
-  margin-top: 0;
-  width: 100%;
 `
 
 const MagnifierLens = styled.div<{ $visible: boolean }>`
@@ -177,30 +210,61 @@ const LensMask = styled(LensImage)`
   opacity: 0.6;
 `
 
-type LapIssuesPageProps = {
-  laps: Lap[]
-}
+const metrics = [
+  {
+    icon: greenDot,
+    label: 'Фото',
+    value: '600',
+  },
+  {
+    icon: blueDot,
+    label: 'Всего объектов',
+    value: '654',
+  },
+  {
+    icon: orangeDot,
+    label: 'Всего повреждений',
+    value: '46',
+  },
+  {
+    icon: yellowDot,
+    label: 'Последний осмотр',
+    value: '14.02.2025',
+  },
+]
+
+const filterItems = [
+  'Все фото',
+  'Виброгаситель',
+  'Гирлянда стекло',
+  'Гирлянда полимер',
+  'Траверс',
+  'Изолятор-',
+  'Изолятор+',
+  'Гнезда',
+  'Таблички',
+]
+
+const MASK_BASE_URL = API_BASE_URL
+const IMAGE_WIDTH = 286
+const IMAGE_HEIGHT = 184
+const MAGNIFIER_SIZE = 180
+const MAGNIFIER_ZOOM = 3
 
 type ImageWithDetections = {
   imageUid: string
   detections: Detection[]
 }
 
-type SectionImages = {
-  [sectionId: string]: {
-    images: ImageWithDetections[]
-    loading: boolean
-    error: string | null
-  }
-}
-
-type ImageWithMasksProps = {
+function ImageWithMasks({
+  imageUrl,
+  detections,
+  onOpenEditor,
+}: {
   imageUrl: string
   detections: Detection[]
   onOpenEditor: () => void
-}
-
-function ImageWithMasks({ imageUrl, detections, onOpenEditor }: ImageWithMasksProps) {
+}) {
   const [lensState, setLensState] = useState({
     visible: false,
     x: IMAGE_WIDTH / 2,
@@ -237,14 +301,15 @@ function ImageWithMasks({ imageUrl, detections, onOpenEditor }: ImageWithMasksPr
   const offsetY = lensState.y * MAGNIFIER_ZOOM - lensHalf
 
   return (
-    <ImageContainer onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave} onClick={onOpenEditor}>
-      <BaseImage src={imageUrl} alt="Фото" loading="lazy" />
+    <PhotoCard
+      style={{ paddingTop: `${(IMAGE_HEIGHT / IMAGE_WIDTH) * 100}%` }}
+      onClick={onOpenEditor}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
+      <PhotoBase src={imageUrl} alt="Фото объекта" loading="lazy" />
       {detections.map((detection) => (
-        <MaskLayer
-          key={detection.id}
-          src={`${MASK_BASE_URL}/mask/${detection.id}.png`}
-          alt={`Маска для проблемы ${detection.id}`}
-        />
+        <PhotoMask key={detection.id} src={`${MASK_BASE_URL}/mask/${detection.id}.png`} alt="" />
       ))}
       <MagnifierLens
         $visible={lensState.visible}
@@ -281,7 +346,7 @@ function ImageWithMasks({ imageUrl, detections, onOpenEditor }: ImageWithMasksPr
           ))}
         </LensContent>
       </MagnifierLens>
-    </ImageContainer>
+    </PhotoCard>
   )
 }
 
@@ -290,11 +355,11 @@ const transformLapsData = (data: LapsResponse): Lap[] => {
   return lapIds.map((lapId) => {
     const lapData = data[lapId]
     let have_problems: boolean | undefined
-    
+
     if (lapData && typeof lapData === 'object' && 'have_problems' in lapData) {
       have_problems = lapData.have_problems
     }
-    
+
     return {
       id: lapId,
       label: lapId,
@@ -306,11 +371,12 @@ const transformLapsData = (data: LapsResponse): Lap[] => {
 export function LapIssuesPage({ laps }: LapIssuesPageProps) {
   const navigate = useNavigate()
   const { lapId } = useParams()
-  const [currentLap, setCurrentLap] = useState<Lap | null>(laps.find((item) => item.id === lapId) || null)
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
-  const [sectionImages, setSectionImages] = useState<SectionImages>({})
+  const [currentLap, setCurrentLap] = useState<Lap | null>(laps.find((lap) => lap.id === lapId) || null)
   const [groupId, setGroupId] = useState<number | null>(null)
   const [isLapLoading, setIsLapLoading] = useState(true)
+  const [images, setImages] = useState<ImageWithDetections[]>([])
+  const [isImagesLoading, setIsImagesLoading] = useState(false)
+  const [imagesError, setImagesError] = useState<string | null>(null)
 
   const title = isLapLoading
     ? 'Загрузка ЛЭП...'
@@ -319,186 +385,111 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
       : 'ЛЭП не найдена'
 
   useEffect(() => {
-    const loadLapAndGroupId = async () => {
+    const loadLapAndGroup = async () => {
       if (!lapId) return
       setIsLapLoading(true)
-      
       try {
-        console.log('[LapIssuesPage] Loading lap and group ID for lapId:', lapId)
         const data = await getLaps()
         const transformedLaps = transformLapsData(data)
-        const foundLap = transformedLaps.find((item) => item.id === lapId)
-        
-        if (foundLap) {
-          console.log('[LapIssuesPage] Found lap:', foundLap)
-          setCurrentLap(foundLap)
-        } else {
-          console.log('[LapIssuesPage] Lap not found in transformed laps')
-        }
-        
+        const foundLap = transformedLaps.find((lap) => lap.id === lapId) || null
+        setCurrentLap(foundLap)
+
         const lapData = data[lapId]
-        console.log('[LapIssuesPage] Lap data:', lapData)
-        
         let foundGroupId: number | null = null
-        
+
         if (lapData && typeof lapData === 'object' && 'last_group' in lapData && lapData.last_group) {
           foundGroupId = lapData.last_group as number
-          console.log('[LapIssuesPage] Found last_group:', foundGroupId)
         } else {
           const groups = getGroupsFromLapData(lapData)
-          console.log('[LapIssuesPage] Groups:', groups)
           if (groups.length > 0) {
             foundGroupId = groups[groups.length - 1].id
-            console.log('[LapIssuesPage] Using last group from array:', foundGroupId)
           }
         }
-        
-        if (foundGroupId) {
-          console.log('[LapIssuesPage] Setting groupId:', foundGroupId)
-          setGroupId(foundGroupId)
-        } else {
-          console.log('[LapIssuesPage] No groupId found for lap')
-        }
+
+        setGroupId(foundGroupId)
       } catch (error) {
-        console.error('[LapIssuesPage] Failed to load lap and group ID:', error)
+        console.error('[LapIssuesPage] Failed to load lap info', error)
       } finally {
         setIsLapLoading(false)
       }
     }
-    void loadLapAndGroupId()
+
+    void loadLapAndGroup()
   }, [lapId])
 
-  const toggleSection = async (sectionId: string) => {
-    if (isLapLoading) {
-      console.log('[LapIssuesPage] Preventing section toggle while lap is loading')
-      return
-    }
-    const isOpening = !openSections[sectionId]
-    setOpenSections((prev) => ({
-      ...prev,
-      [sectionId]: !prev[sectionId],
-    }))
+  useEffect(() => {
+    const loadImages = async () => {
+      if (!groupId) return
+      setIsImagesLoading(true)
+      setImagesError(null)
 
-    if (!isOpening) {
-      return
-    }
-
-    if (sectionImages[sectionId]) {
-      return
-    }
-
-    if (!groupId) {
-      console.log('[LapIssuesPage] No groupId available for section:', sectionId)
-      setSectionImages((prev) => ({
-        ...prev,
-        [sectionId]: { images: [], loading: false, error: 'Группа не найдена' },
-      }))
-      return
+      try {
+        const data: GroupImagesResponse = await getGroupImages(groupId)
+        const mappedImages: ImageWithDetections[] = Object.entries(data.images).map(([imageUid, detections]) => ({
+          imageUid,
+          detections,
+        }))
+        setImages(mappedImages)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Не удалось загрузить фотографии'
+        setImagesError(message)
+      } finally {
+        setIsImagesLoading(false)
+      }
     }
 
-    const section = componentSections.find((s) => s.id === sectionId)
-    if (!section) {
-      console.log('[LapIssuesPage] Section not found:', sectionId)
-      return
-    }
-
-    console.log('[LapIssuesPage] Loading images for section:', sectionId, 'groupId:', groupId)
-    setSectionImages((prev) => ({
-      ...prev,
-      [sectionId]: { images: [], loading: true, error: null },
-    }))
-
-    try {
-      const data: GroupImagesResponse = await getGroupImages(groupId)
-      console.log('[LapIssuesPage] Received group images:', data)
-      const sectionClasses = sectionClassMap[sectionId] || []
-
-      const matchingImages: ImageWithDetections[] = []
-      Object.entries(data.images).forEach(([imageUid, detections]) => {
-        const relevantDetections = detections.filter((detection) => {
-          return sectionClasses.includes(detection.class)
-        })
-        if (relevantDetections.length > 0) {
-          matchingImages.push({
-            imageUid,
-            detections: relevantDetections,
-          })
-        }
-      })
-
-      setSectionImages((prev) => ({
-        ...prev,
-        [sectionId]: { images: matchingImages, loading: false, error: null },
-      }))
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Не удалось загрузить фотографии'
-      setSectionImages((prev) => ({
-        ...prev,
-        [sectionId]: { images: [], loading: false, error: errorMessage },
-      }))
-    }
-  }
+    void loadImages()
+  }, [groupId])
 
   return (
     <>
-      <Header title={title} />
+      <Header title={title} titleColor="#CAC8C6" titleFontSize="28px" titleFontWeight="400" />
       <Content>
-        <ComponentSectionsWrapper>
-          {componentSections.map((section) => (
-            <SectionWrapper key={section.id}>
-              <SectionHeader type="button" onClick={() => toggleSection(section.id)}>
-                {section.title}
-                <SectionHeaderRight>
-                  <ToggleText>{openSections[section.id] ? 'свернуть' : 'развернуть'}</ToggleText>
-                  <ArrowIcon src={arrowIcon} alt="" $isOpen={Boolean(openSections[section.id])} />
-                </SectionHeaderRight>
-              </SectionHeader>
-              <SectionDivider />
-              {openSections[section.id] && (
-                <>
-                  {sectionImages[section.id]?.loading && (
-                    <LoadingText>Загрузка фотографий...</LoadingText>
-                  )}
-                  {sectionImages[section.id]?.error && (
-                    <LoadingText style={{ color: '#de6f6d' }}>{sectionImages[section.id].error}</LoadingText>
-                  )}
-                  {sectionImages[section.id] && !sectionImages[section.id].loading && !sectionImages[section.id].error && (
-                    <PhotoPlaceholderGrid>
-                      {sectionImages[section.id].images.length > 0 ? (
-                        sectionImages[section.id].images.map((imageData) => (
-                          <ImageWithMasks
-                            key={imageData.imageUid}
-                            imageUrl={`${API_BASE_URL}/image/${groupId}/${imageData.imageUid}.jpeg`}
-                            detections={imageData.detections}
-                            onOpenEditor={() =>
-                              navigate('/editor', {
-                                state: {
-                                  imageUrl: `${API_BASE_URL}/image/${groupId}/${imageData.imageUid}.jpeg`,
-                                  maskUrls: imageData.detections.map(
-                                    (detection) => `${MASK_BASE_URL}/mask/${detection.id}.png`,
-                                  ),
-                                },
-                              })
-                            }
-                          />
-                        ))
-                      ) : (
-                        <NoPhotosText>Фотографий не найдено</NoPhotosText>
-                      )}
-                    </PhotoPlaceholderGrid>
-                  )}
-                  {!sectionImages[section.id] && (
-                    <PhotoPlaceholderGrid>
-                      {[1, 2, 3, 4].map((item) => (
-                        <PhotoPlaceholder key={`${section.id}-${item}`}>фото</PhotoPlaceholder>
-                      ))}
-                    </PhotoPlaceholderGrid>
-                  )}
-                </>
-              )}
-            </SectionWrapper>
-          ))}
-        </ComponentSectionsWrapper>
+        <ContentSection>
+          <MetricsContainer>
+            {metrics.map((metric) => (
+              <MetricItem key={metric.label}>
+                <MetricIcon src={metric.icon} alt="" />
+                <MetricTextGroup>
+                  <MetricLabel>{metric.label}</MetricLabel>
+                  <MetricValue>{metric.value}</MetricValue>
+                </MetricTextGroup>
+              </MetricItem>
+            ))}
+          </MetricsContainer>
+          <Divider src={dividerLine} alt="" />
+          <FiltersTitle>Фильтры</FiltersTitle>
+          <FiltersGrid>
+            {filterItems.map((filter) => (
+              <FilterButton key={filter}>{filter}</FilterButton>
+            ))}
+          </FiltersGrid>
+          <PhotosTitle>Фотографии</PhotosTitle>
+          {isImagesLoading && <PhotoStatusText>Загрузка фотографий...</PhotoStatusText>}
+          {imagesError && <PhotoStatusText style={{ color: '#DF6F6D' }}>{imagesError}</PhotoStatusText>}
+          {!isImagesLoading && !imagesError && images.length === 0 && (
+            <PhotoStatusText>Фотографии не найдены</PhotoStatusText>
+          )}
+          {!isImagesLoading && !imagesError && images.length > 0 && (
+            <PhotosGrid>
+              {images.map((image) => (
+                <ImageWithMasks
+                  key={image.imageUid}
+                  imageUrl={`${API_BASE_URL}/image/${groupId}/${image.imageUid}.jpeg`}
+                  detections={image.detections}
+                  onOpenEditor={() =>
+                    navigate('/editor', {
+                      state: {
+                        imageUrl: `${API_BASE_URL}/image/${groupId}/${image.imageUid}.jpeg`,
+                        maskUrls: image.detections.map((detection) => `${MASK_BASE_URL}/mask/${detection.id}.png`),
+                      },
+                    })
+                  }
+                />
+              ))}
+            </PhotosGrid>
+          )}
+        </ContentSection>
       </Content>
     </>
   )
