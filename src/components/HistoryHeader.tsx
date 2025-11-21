@@ -3,14 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import styled from 'styled-components'
 import toklyLogo from '../assets/tokly11.svg'
 
-type HeaderProps = {
-  title?: string
-  subtitle?: string
-  titleColor?: string
-  titleFontSize?: string
-  titleFontWeight?: number | string
-}
-
 const HeaderWrapper = styled.div`
   width: 100%;
   height: 80px;
@@ -36,31 +28,17 @@ const Logo = styled.img`
 
 const TitleWrapper = styled.div`
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: white;
+`
+
+const Title = styled.div`
+  color: #CAC8C6;
+  font-size: 40px;
   font-family: 'Nunito', sans-serif;
-`
-
-const Title = styled.span<{
-  $color?: string
-  $fontSize?: string
-  $fontWeight?: number | string
-}>`
-  font-size: ${({ $fontSize }) => $fontSize ?? '40px'};
-  font-weight: ${({ $fontWeight }) => $fontWeight ?? 400};
-  line-height: 1.2;
-  color: ${({ $color }) => $color ?? 'white'};
+  font-weight: 400;
   word-wrap: break-word;
-`
-
-const Subtitle = styled.span`
-  font-size: 18px;
-  font-weight: 300;
-  line-height: 1.2;
-  color: #9d9b97;
 `
 
 const BurgerButton = styled.button`
@@ -190,14 +168,14 @@ const MenuButton = styled.button`
   }
 `
 
-export const Header = ({ title, subtitle, titleColor, titleFontSize, titleFontWeight }: HeaderProps) => {
+export const HistoryHeader = () => {
   const navigate = useNavigate()
   const params = useParams()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  const lapId = params.lapId
+  const lapId = params.lapId || '1'
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -269,14 +247,9 @@ export const Header = ({ title, subtitle, titleColor, titleFontSize, titleFontWe
             </DropdownMenu>
           )}
         </div>
-        {title ? (
-          <TitleWrapper>
-          <Title $color={titleColor} $fontSize={titleFontSize} $fontWeight={titleFontWeight}>
-            {title}
-          </Title>
-            {subtitle && <Subtitle>{subtitle}</Subtitle>}
-          </TitleWrapper>
-        ) : null}
+        <TitleWrapper>
+          <Title>История ЛЭП #{lapId}</Title>
+        </TitleWrapper>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <Logo src={toklyLogo} alt="Tokly" />
         </div>

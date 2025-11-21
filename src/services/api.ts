@@ -395,3 +395,72 @@ export async function getGroupImages(groupId: number): Promise<GroupImagesRespon
   }
 }
 
+export async function getGroupsByLap(lapId: string | number): Promise<Group[]> {
+  const url = `${API_BASE_URL}/groups/by_lap?lap_id=${encodeURIComponent(lapId)}`
+  
+  console.log('[API] Fetching groups by lap:', {
+    method: 'GET',
+    url,
+    lapId,
+  })
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+    })
+
+    console.log('[API] Response status:', response.status, response.statusText)
+
+    if (!response.ok) {
+      let errorText = ''
+      let errorJson = null
+      
+      try {
+        errorText = await response.text()
+        console.error('[API] Error response text:', errorText)
+        
+        if (errorText) {
+          // Проверяем, является ли ответ HTML (например, страница ошибки 503)
+          if (errorText.trim().startsWith('<!DOCTYPE') || errorText.trim().startsWith('<html')) {
+            if (response.status === 503) {
+              throw new Error('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
+            }
+            throw new Error(`Сервер вернул ошибку ${response.status}. Сервис может быть временно недоступен.`)
+          }
+          
+          try {
+            errorJson = JSON.parse(errorText)
+            console.error('[API] Error response JSON:', errorJson)
+          } catch {
+            void 0
+          }
+        }
+      } catch (e) {
+        console.error('[API] Failed to read error response:', e)
+        if (e instanceof Error) {
+          throw e
+        }
+      }
+      
+      // Для 503 показываем понятное сообщение
+      if (response.status === 503) {
+        throw new Error('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
+      }
+      
+      const errorMessage = errorJson?.message || errorText || response.statusText
+      throw new Error(`Failed to fetch groups by lap (${response.status}): ${errorMessage}`)
+    }
+
+    const data: Group[] = await response.json()
+    console.log('[API] Groups fetched successfully:', data)
+    console.log('[API] Total groups:', data.length)
+    return data
+  } catch (error) {
+    console.error('[API] Failed to fetch groups by lap:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error(`Failed to fetch groups by lap: ${String(error)}`)
+  }
+}
+

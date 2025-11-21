@@ -8,6 +8,7 @@ import { LapListPage } from './pages/LapListPage'
 import { LapDetailsPage } from './pages/LapDetailsPage'
 import { LapIssuesPage } from './pages/LapIssuesPage'
 import { PhotoEditorPage } from './pages/PhotoEditorPage'
+import { HistoryPage } from './pages/HistoryPage'
 import { deleteGroup, getGroupsFromLapData, getLaps, type Group, type LapsResponse } from './services/api'
 import { type Lap } from './components/MainHeader'
 
@@ -194,6 +195,10 @@ function App() {
             <Route
               path="/line/:lapId"
               element={<LapDetailsPage laps={laps} />}
+            />
+            <Route
+              path="/line/:lapId/history"
+              element={<HistoryPage />}
             />
             <Route
               path="/line/:lapId/issues"

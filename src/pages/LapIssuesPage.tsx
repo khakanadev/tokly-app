@@ -1,5 +1,5 @@
 import { useEffect, useState, type MouseEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { Content } from '../components/Layout'
 import { Header } from '../components/Header'
@@ -379,6 +379,7 @@ const transformLapsData = (data: LapsResponse): Lap[] => {
 export function LapIssuesPage({ laps }: LapIssuesPageProps) {
   const navigate = useNavigate()
   const { lapId } = useParams()
+  const [searchParams] = useSearchParams()
   const [currentLap, setCurrentLap] = useState<Lap | null>(laps.find((lap) => lap.id === lapId) || null)
   const [groupId, setGroupId] = useState<number | null>(null)
   const [isLapLoading, setIsLapLoading] = useState(true)
@@ -397,6 +398,24 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
       if (!lapId) return
       setIsLapLoading(true)
       try {
+        // Проверяем query параметр group_id
+        const groupIdParam = searchParams.get('group_id')
+        
+        if (groupIdParam) {
+          const parsedGroupId = Number.parseInt(groupIdParam, 10)
+          if (!Number.isNaN(parsedGroupId)) {
+            setGroupId(parsedGroupId)
+            setIsLapLoading(false)
+            // Все равно загружаем информацию о ЛЭП
+            const data = await getLaps()
+            const transformedLaps = transformLapsData(data)
+            const foundLap = transformedLaps.find((lap) => lap.id === lapId) || null
+            setCurrentLap(foundLap)
+            return
+          }
+        }
+
+        // Если group_id не указан, используем логику по умолчанию
         const data = await getLaps()
         const transformedLaps = transformLapsData(data)
         const foundLap = transformedLaps.find((lap) => lap.id === lapId) || null
@@ -423,7 +442,7 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
     }
 
     void loadLapAndGroup()
-  }, [lapId])
+  }, [lapId, searchParams])
 
   useEffect(() => {
     const loadImages = async () => {
