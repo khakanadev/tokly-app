@@ -319,22 +319,66 @@ export function LapDetailsPage({ laps }: LapDetailsPageProps) {
       return
     }
 
-    const file = files[0]
     setUploadError(null)
     setIsUploading(true)
     setUploadSuccess(false)
-    setUploadProgress(10)
-    setLastUploadedFile(file.name)
+    setUploadProgress(0)
 
     try {
+      // Создаем группу один раз для всех файлов
       const groupId = await createGroup(lap.id)
-      setUploadProgress(55)
+      
+      // Обрабатываем файлы последовательно
+      const totalFiles = files.length
+      console.log(`[LapDetailsPage] Processing ${totalFiles} files for group ${groupId}`)
+      
+      let successCount = 0
+      let errorCount = 0
+      
+      for (let i = 0; i < totalFiles; i++) {
+        const file = files[i]
+        console.log(`[LapDetailsPage] Processing file ${i + 1}/${totalFiles}: ${file.name} (${file.size} bytes, type: ${file.type})`)
+        setLastUploadedFile(`${file.name} (${i + 1}/${totalFiles})`)
+        
+        // Прогресс: 10% за создание группы + 90% за обработку файлов
+        const baseProgress = 10
+        const fileProgress = (90 / totalFiles) * (i + 1)
+        setUploadProgress(baseProgress + fileProgress)
 
-      await detectPhoto(groupId, file)
+        try {
+          // Пропускаем служебные файлы macOS
+          if (file.name.startsWith('._') || file.size < 1000) {
+            console.log(`[LapDetailsPage] Skipping system file: ${file.name}`)
+            continue
+          }
+          
+          const result = await detectPhoto(groupId, file)
+          console.log(`[LapDetailsPage] Successfully processed file ${file.name}:`, result)
+          successCount++
+        } catch (error) {
+          // Пропускаем ошибки для служебных файлов
+          if (file.name.startsWith('._') || file.size < 1000) {
+            console.log(`[LapDetailsPage] Skipping error for system file: ${file.name}`)
+            continue
+          }
+          
+          const message = error instanceof Error ? error.message : 'Не удалось обработать фото'
+          console.error(`[LapDetailsPage] Failed to process file ${file.name}:`, error)
+          errorCount++
+          // Продолжаем обработку остальных файлов, но запоминаем ошибку
+          setUploadError((prev) => {
+            const errorMsg = `Ошибка при обработке ${file.name}: ${message}`
+            return prev ? `${prev}\n${errorMsg}` : errorMsg
+          })
+        }
+      }
+      
+      console.log(`[LapDetailsPage] Processing complete: ${successCount} successful, ${errorCount} errors`)
+
       setUploadProgress(100)
       setUploadSuccess(true)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Не удалось обработать фото'
+      const message = error instanceof Error ? error.message : 'Не удалось создать группу'
       setUploadError(message)
       setUploadProgress(0)
     } finally {

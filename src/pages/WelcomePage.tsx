@@ -52,10 +52,24 @@ export function WelcomePage() {
   const navigate = useNavigate()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
 
   const handleFilesDrop = (droppedFiles: File[]) => {
+    console.log(`[WelcomePage] Files dropped: ${droppedFiles.length} files`)
+    droppedFiles.forEach((f, idx) => {
+      console.log(`[WelcomePage] File ${idx + 1}: ${f.name}, size: ${f.size}, type: ${f.type}`)
+    })
+    
     if (droppedFiles.length > 0) {
-      setSelectedFile(droppedFiles[0])
+      // Если один файл, используем старую логику для обратной совместимости
+      if (droppedFiles.length === 1) {
+        setSelectedFile(droppedFiles[0])
+        setSelectedFiles([])
+      } else {
+        // Если несколько файлов, используем новую логику
+        setSelectedFile(null)
+        setSelectedFiles(droppedFiles)
+      }
       setIsModalOpen(true)
     }
   }
@@ -63,6 +77,7 @@ export function WelcomePage() {
   const handleModalClose = () => {
     setIsModalOpen(false)
     setSelectedFile(null)
+    setSelectedFiles([])
   }
 
   const handleSuccess = async (lapId: string) => {
@@ -86,6 +101,7 @@ export function WelcomePage() {
         isOpen={isModalOpen}
         onClose={handleModalClose}
         file={selectedFile}
+        files={selectedFiles.length > 0 ? selectedFiles : undefined}
         onSuccess={handleSuccess}
       />
     </>

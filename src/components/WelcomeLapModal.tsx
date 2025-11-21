@@ -6,6 +6,7 @@ type WelcomeLapModalProps = {
   isOpen: boolean
   onClose: () => void
   file: File | null
+  files?: File[]
   onSuccess?: (lapId: string) => Promise<void> | void
 }
 
@@ -158,11 +159,14 @@ const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary'; disable
       : ''}
 `
 
-export const WelcomeLapModal = ({ isOpen, onClose, file, onSuccess }: WelcomeLapModalProps) => {
+export const WelcomeLapModal = ({ isOpen, onClose, file, files, onSuccess }: WelcomeLapModalProps) => {
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [progress, setProgress] = useState(0)
+
+  // Используем files, если они есть, иначе используем file как массив из одного элемента
+  const filesToProcess = files && files.length > 0 ? files : (file ? [file] : [])
 
   const resetState = () => {
     setValue('')
@@ -183,10 +187,15 @@ export const WelcomeLapModal = ({ isOpen, onClose, file, onSuccess }: WelcomeLap
       setError('Введите ID ЛЭП')
       return
     }
-    if (!file) {
-      setError('Файл не найден')
+    if (filesToProcess.length === 0) {
+      setError('Файлы не найдены')
       return
     }
+
+    console.log(`[WelcomeLapModal] Starting upload: ${filesToProcess.length} files`)
+    filesToProcess.forEach((f, idx) => {
+      console.log(`[WelcomeLapModal] File ${idx + 1}: ${f.name}, size: ${f.size}, type: ${f.type}`)
+    })
 
     setError(null)
     setIsSubmitting(true)
@@ -195,11 +204,60 @@ export const WelcomeLapModal = ({ isOpen, onClose, file, onSuccess }: WelcomeLap
     const lapId = value.trim()
 
     try {
+      // Создаем группу один раз для всех файлов
       const groupId = await createGroup(lapId)
-      setProgress(55)
+      
+      // Обрабатываем файлы последовательно
+      const totalFiles = filesToProcess.length
+      console.log(`[WelcomeLapModal] Processing ${totalFiles} files for group ${groupId}`)
+      
+      let successCount = 0
+      let errorCount = 0
+      
+      for (let i = 0; i < totalFiles; i++) {
+        const currentFile = filesToProcess[i]
+        console.log(`[WelcomeLapModal] Processing file ${i + 1}/${totalFiles}: ${currentFile.name} (${currentFile.size} bytes, type: ${currentFile.type})`)
+        
+        // Прогресс: 10% за создание группы + 90% за обработку файлов
+        const baseProgress = 10
+        const fileProgress = (90 / totalFiles) * (i + 1)
+        setProgress(baseProgress + fileProgress)
 
-      await detectPhoto(groupId, file)
+        try {
+          // Пропускаем служебные файлы macOS
+          if (currentFile.name.startsWith('._') || currentFile.size < 1000) {
+            console.log(`[WelcomeLapModal] Skipping system file: ${currentFile.name}`)
+            continue
+          }
+          
+          const result = await detectPhoto(groupId, currentFile)
+          console.log(`[WelcomeLapModal] Successfully processed file ${currentFile.name}:`, result)
+          successCount++
+        } catch (err) {
+          // Пропускаем ошибки для служебных файлов
+          if (currentFile.name.startsWith('._') || currentFile.size < 1000) {
+            console.log(`[WelcomeLapModal] Skipping error for system file: ${currentFile.name}`)
+            continue
+          }
+          
+          const message = err instanceof Error ? err.message : 'Не удалось обработать фото'
+          console.error(`[WelcomeLapModal] Failed to process file ${currentFile.name}:`, err)
+          errorCount++
+          // Продолжаем обработку остальных файлов, но запоминаем ошибку
+          setError((prev) => {
+            const errorMsg = `Ошибка при обработке ${currentFile.name}: ${message}`
+            return prev ? `${prev}\n${errorMsg}` : errorMsg
+          })
+        }
+      }
+      
+      console.log(`[WelcomeLapModal] Processing complete: ${successCount} successful, ${errorCount} errors`)
+
       setProgress(100)
+      
+      // Даем серверу время обработать все файлы перед редиректом
+      console.log(`[WelcomeLapModal] Waiting 2 seconds for server to process files...`)
+      await new Promise(resolve => setTimeout(resolve, 2000))
 
       if (onSuccess) {
         await onSuccess(lapId)
