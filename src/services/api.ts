@@ -395,6 +395,62 @@ export async function getGroupImages(groupId: number): Promise<GroupImagesRespon
   }
 }
 
+export type LapConfig = {
+  bad_insulator: number
+  damaged_insulator: number
+  festoon_insulators: number
+  nest: number
+  polymer_insulators: number
+  'safety_sign+': number
+  sum: number
+  traverse: number
+}
+
+export async function getLapConfig(lapId: string | number): Promise<LapConfig> {
+  const url = `${API_BASE_URL}/lap_config/get?lap_id=${encodeURIComponent(lapId)}`
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to get lap config: ${response.statusText}`)
+    }
+
+    const data: LapConfig = await response.json()
+    return data
+  } catch (error) {
+    console.error('[API] Failed to fetch lap config:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error(`Failed to fetch lap config: ${String(error)}`)
+  }
+}
+
+export async function saveLapConfig(lapId: string | number, config: LapConfig): Promise<void> {
+  const url = `${API_BASE_URL}/lap_config/save?lap_id=${encodeURIComponent(lapId)}`
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(config),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to save lap config: ${response.statusText}`)
+    }
+  } catch (error) {
+    console.error('[API] Failed to save lap config:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error(`Failed to save lap config: ${String(error)}`)
+  }
+}
+
 export async function getGroupsByLap(lapId: string | number): Promise<Group[]> {
   const url = `${API_BASE_URL}/groups/by_lap?lap_id=${encodeURIComponent(lapId)}`
   

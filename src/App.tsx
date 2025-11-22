@@ -155,17 +155,8 @@ function App() {
   }
 
   const handleEditLap = (index: number) => {
-    if (typeof window === 'undefined') {
-      return
-    }
-    const current = laps[index]
-    const nextLabel = window.prompt('Новый ID ЛЭПа', current.label)
-    if (!nextLabel) {
-      return
-    }
-    setLaps((prev) =>
-      prev.map((lap, i) => (i === index ? { ...lap, label: nextLabel } : lap)),
-    )
+    // Редактирование теперь происходит через модальное окно настроек
+    // Эта функция оставлена для совместимости, но не выполняет действий
   }
 
   const handleSelectLap = (lap: Lap) => {
