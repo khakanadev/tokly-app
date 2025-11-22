@@ -67,9 +67,16 @@ export function PhotoEditorPage() {
   const [textModalState, setTextModalState] = useState<TextModalState | null>(null)
   const [textInputValue, setTextInputValue] = useState('')
   const textInputRef = useRef<HTMLInputElement | null>(null)
-  const [activeFilter, setActiveFilter] = useState<'critical' | 'damage' | 'objects' | 'custom' | null>(null)
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
   const [showPolygons, setShowPolygons] = useState(false)
+  const [showCustomMask, setShowCustomMask] = useState(true) // Включено по умолчанию
+  const [showCriticalMasks, setShowCriticalMasks] = useState(true) // Критические повреждения
+  const [showDamageMasks, setShowDamageMasks] = useState(true) // Простые повреждения
+  const [showObjectMasks, setShowObjectMasks] = useState(true) // Объекты
+  const [customMaskUrl, setCustomMaskUrl] = useState<string | null>(null)
+  const [isSavingMask, setIsSavingMask] = useState(false)
+  const [maskKey, setMaskKey] = useState(0) // Ключ для принудительной перезагрузки маски
+  const basePhotoRef = useRef<HTMLImageElement | null>(null)
 
   useEffect(() => {
     if (textModalState && textInputRef.current) {
@@ -113,9 +120,38 @@ export function PhotoEditorPage() {
     if (polygonUrl) {
       const img = new Image()
       img.src = polygonUrl
-      console.log('[PhotoEditorPage] Preloading polygon:', polygonUrl)
     }
   }, [polygonUrl])
+
+  // Загрузка пользовательской маски при загрузке страницы (предзагрузка)
+  useEffect(() => {
+    const loadCustomMask = async () => {
+      if (!groupId || !imageUid) return
+
+      const maskUrl = `${API_BASE_URL}/image/${groupId}/${imageUid}_mask.png`
+      
+      // Предзагружаем маску в кэш браузера через Image объект для мгновенного отображения
+      const maskImg = new Image()
+      await new Promise<void>((resolve) => {
+        maskImg.onload = () => {
+          // Маска успешно загружена, устанавливаем URL
+          const urlWithTimestamp = `${maskUrl}?t=${Date.now()}`
+          setCustomMaskUrl(urlWithTimestamp)
+          setShowCustomMask(true)
+          resolve()
+        }
+        maskImg.onerror = () => {
+          // Маска не существует, это нормально
+          setCustomMaskUrl(null)
+          setShowCustomMask(true) // Переключатель остается включенным
+          resolve()
+        }
+        maskImg.src = maskUrl
+      })
+    }
+
+    void loadCustomMask()
+  }, [groupId, imageUid])
 
   // Создаем мапу для связи масок с детекциями по индексу
   // maskUrls и detections должны быть в одинаковом порядке
@@ -129,30 +165,33 @@ export function PhotoEditorPage() {
     return map
   }, [allMaskUrls, detections])
 
-  // Фильтруем маски на основе выбранного фильтра
+  // Фильтруем маски на основе включенных переключателей
   const filteredMaskUrls = useMemo(() => {
-    if (!activeFilter) {
-      return allMaskUrls
+    // Если все переключатели выключены, не показываем маски
+    if (!showCriticalMasks && !showDamageMasks && !showObjectMasks) {
+      return []
     }
 
     return allMaskUrls.filter((maskUrl) => {
       const detection = maskToDetectionMap.get(maskUrl)
       if (!detection) return false
 
-      switch (activeFilter) {
-        case 'critical':
-          return detection.damage_level > 3
-        case 'damage':
-          return detection.damage_level > 0 && detection.damage_level <= 3
-        case 'objects':
-          return detection.damage_level === 0
-        case 'custom':
-          return true
-        default:
-          return true
+      const damageLevel = detection.damage_level
+
+      // Проверяем каждый тип маски независимо
+      if (damageLevel > 3 && showCriticalMasks) {
+        return true
       }
+      if (damageLevel > 0 && damageLevel <= 3 && showDamageMasks) {
+        return true
+      }
+      if (damageLevel === 0 && showObjectMasks) {
+        return true
+      }
+
+      return false
     })
-  }, [allMaskUrls, activeFilter, maskToDetectionMap])
+  }, [allMaskUrls, showCriticalMasks, showDamageMasks, showObjectMasks, maskToDetectionMap])
 
   const getRelativePosition = (event: MouseEvent<HTMLDivElement>) => {
     if (!canvasRef.current) {
@@ -257,13 +296,182 @@ export function PhotoEditorPage() {
     setTextInputValue('')
   }
 
-  const handleSave = () => {
-    console.log('[PhotoEditorPage] Save clicked', {
-      rectangles,
-      texts,
-      selectedColor,
-      imageUrl,
-    })
+  const handleSave = async () => {
+    if (!groupId || !imageUid || (rectangles.length === 0 && texts.length === 0)) {
+      return
+    }
+
+    setIsSavingMask(true)
+
+    try {
+      // Получаем размеры исходного изображения
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = reject
+        img.src = imageUrl
+      })
+
+      const imgWidth = img.naturalWidth
+      const imgHeight = img.naturalHeight
+
+      // Создаем canvas для маски
+      const canvas = document.createElement('canvas')
+      canvas.width = imgWidth
+      canvas.height = imgHeight
+      const ctx = canvas.getContext('2d')
+
+      if (!ctx) {
+        throw new Error('Failed to get canvas context')
+      }
+
+      // Заполняем прозрачным фоном
+      ctx.clearRect(0, 0, imgWidth, imgHeight)
+
+      // Получаем размеры отображаемого изображения для масштабирования
+      const canvasElement = canvasRef.current
+      if (!canvasElement) {
+        throw new Error('Failed to get canvas element')
+      }
+
+      const basePhotoElement = basePhotoRef.current
+      if (!basePhotoElement) {
+        throw new Error('Failed to get base photo element')
+      }
+
+      const canvasRect = canvasElement.getBoundingClientRect()
+
+      // Вычисляем реальные размеры изображения с учетом object-fit: contain
+      const imgAspectRatio = imgWidth / imgHeight
+      const containerAspectRatio = canvasRect.width / canvasRect.height
+
+      let displayedWidth: number
+      let displayedHeight: number
+      let offsetX = 0
+      let offsetY = 0
+
+      if (imgAspectRatio > containerAspectRatio) {
+        // Изображение масштабируется по ширине
+        displayedWidth = canvasRect.width
+        displayedHeight = canvasRect.width / imgAspectRatio
+        offsetY = (canvasRect.height - displayedHeight) / 2
+      } else {
+        // Изображение масштабируется по высоте
+        displayedHeight = canvasRect.height
+        displayedWidth = canvasRect.height * imgAspectRatio
+        offsetX = (canvasRect.width - displayedWidth) / 2
+      }
+
+      // Масштабируем координаты с учетом реального размера изображения
+      const scaleX = imgWidth / displayedWidth
+      const scaleY = imgHeight / displayedHeight
+
+      // Рисуем контуры прямоугольников на canvas с цветом из палитры
+      ctx.lineWidth = 2 // Толщина линии
+      rectangles.forEach((rect) => {
+        // Вычитаем offset, чтобы координаты были относительно изображения, а не контейнера
+        const x = (rect.x - offsetX) * scaleX
+        const y = (rect.y - offsetY) * scaleY
+        const width = rect.width * scaleX
+        const height = rect.height * scaleY
+        
+        // Проверяем, что прямоугольник находится в пределах изображения
+        if (x >= 0 && y >= 0 && x + width <= imgWidth && y + height <= imgHeight) {
+          // Используем цвет прямоугольника из палитры
+          ctx.strokeStyle = rect.color
+          ctx.strokeRect(x, y, width, height)
+        }
+      })
+
+      // Рисуем тексты на canvas
+      ctx.font = `${Math.round(16 * scaleX)}px Inter, sans-serif` // Масштабируем размер шрифта
+      ctx.textBaseline = 'top'
+      texts.forEach((text) => {
+        // Вычитаем offset, чтобы координаты были относительно изображения, а не контейнера
+        const x = (text.x - offsetX) * scaleX
+        const y = (text.y - offsetY) * scaleY
+        
+        // Проверяем, что текст находится в пределах изображения
+        if (x >= 0 && y >= 0 && x <= imgWidth && y <= imgHeight) {
+          ctx.fillStyle = text.color
+          ctx.fillText(text.value, x, y)
+        }
+      })
+
+      // Конвертируем canvas в PNG blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob)
+            } else {
+              reject(new Error('Failed to convert canvas to blob'))
+            }
+          },
+          'image/png',
+        )
+      })
+
+      // Отправляем маску на сервер
+      const maskUrl = `${API_BASE_URL}/image/${groupId}/${imageUid}_mask.png`
+      const maskResponse = await fetch(maskUrl, {
+        method: 'POST',
+        body: blob,
+        headers: {
+          'Content-Type': 'image/png',
+        },
+      })
+
+      if (!maskResponse.ok) {
+        throw new Error(`Failed to save mask: ${maskResponse.statusText}`)
+      }
+
+      // Пытаемся сохранить тексты в JSON файл (опционально, не критично)
+      // Тексты уже нарисованы на canvas и сохранены в изображении маски
+      if (texts.length > 0) {
+        try {
+          const textsUrl = `${API_BASE_URL}/image/${groupId}/${imageUid}_texts.json`
+          const textsResponse = await fetch(textsUrl, {
+            method: 'POST',
+            body: JSON.stringify(texts),
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          })
+
+          if (!textsResponse.ok) {
+            // Не критичная ошибка - тексты уже в изображении маски
+            console.warn('[PhotoEditorPage] Failed to save texts JSON, but texts are already in mask image')
+          }
+        } catch (error) {
+          // Не критичная ошибка - тексты уже в изображении маски
+          console.warn('[PhotoEditorPage] Failed to save texts JSON, but texts are already in mask image:', error)
+        }
+      }
+
+      // Обновляем URL маски с timestamp для обновления кеша и принудительной перезагрузки
+      const urlWithTimestamp = `${maskUrl}?t=${Date.now()}`
+      
+      // Предзагружаем маску, чтобы убедиться, что она загрузилась
+      const maskImg = new Image()
+      await new Promise<void>((resolve, reject) => {
+        maskImg.onload = () => resolve()
+        maskImg.onerror = reject
+        maskImg.src = urlWithTimestamp
+      })
+
+      // После успешной загрузки маски очищаем разметку и показываем маску
+      setRectangles([])
+      setTexts([])
+      setCustomMaskUrl(urlWithTimestamp)
+      setShowCustomMask(true)
+      setMaskKey((prev) => prev + 1) // Обновляем ключ для принудительной перезагрузки изображения
+    } catch (error) {
+      console.error('[PhotoEditorPage] Failed to save custom mask:', error)
+    } finally {
+      setIsSavingMask(false)
+    }
   }
 
   const handleUndo = () => {
@@ -306,12 +514,15 @@ export function PhotoEditorPage() {
               $tool={activeTool}
             >
               <BasePhotoWrapper>
-                <BasePhoto src={imageUrl} alt="Редактируемое фото" draggable={false} />
+                <BasePhoto ref={basePhotoRef} src={imageUrl} alt="Редактируемое фото" draggable={false} />
                 {filteredMaskUrls.map((maskUrl, index) => (
                   <MaskImage key={`${maskUrl}-${index}`} src={maskUrl} alt="Маска" draggable={false} />
                 ))}
                 {showPolygons && polygonUrl && (
                   <PolygonImage src={polygonUrl} alt="Полигон" draggable={false} />
+                )}
+                {showCustomMask && customMaskUrl && (
+                  <MaskImage key={maskKey} src={customMaskUrl} alt="Моя маска" draggable={false} />
                 )}
               </BasePhotoWrapper>
               <OverlayLayer>
@@ -387,68 +598,68 @@ export function PhotoEditorPage() {
                   <ToolIcon src={textIcon} alt="Добавить текст" />
                 </ToolButton>
               </ToolsStack>
-              <SaveButton type="button" onClick={handleSave}>
-                <span>Сохранить</span>
+              <SaveButton type="button" onClick={handleSave} disabled={isSavingMask || rectangles.length === 0 || !groupId || !imageUid}>
+                <span>{isSavingMask ? 'Сохранение...' : 'Сохранить'}</span>
               </SaveButton>
             </ToolsPanel>
             <PanelContainer>
-              <ProblemsTitle>Проблемы</ProblemsTitle>
+              <ProblemsTitle>Маски</ProblemsTitle>
               <FilterButtons>
-                <FilterButton
-                  type="button"
-                  $active={activeFilter === 'critical'}
-                  onClick={() => setActiveFilter(activeFilter === 'critical' ? null : 'critical')}
-                >
-                  Критические проблемы
-                </FilterButton>
-                <FilterButton
-                  type="button"
-                  $active={activeFilter === 'damage'}
-                  onClick={() => setActiveFilter(activeFilter === 'damage' ? null : 'damage')}
-                >
-                  Повреждение
-                </FilterButton>
-                <FilterButton
-                  type="button"
-                  $active={activeFilter === 'objects'}
-                  onClick={() => setActiveFilter(activeFilter === 'objects' ? null : 'objects')}
-                >
-                  Объекты
-                </FilterButton>
-                <FilterButton
-                  type="button"
-                  $active={activeFilter === 'custom'}
-                  onClick={() => setActiveFilter(activeFilter === 'custom' ? null : 'custom')}
-                >
-                  Пользовательская маска
-                </FilterButton>
+                <MaskToggleItem>
+                  <MaskToggleLabel>Критические проблемы</MaskToggleLabel>
+                  <MaskToggleSwitch
+                    type="button"
+                    $active={showCriticalMasks}
+                    onClick={() => setShowCriticalMasks(!showCriticalMasks)}
+                  >
+                    <MaskToggleSlider $active={showCriticalMasks} />
+                  </MaskToggleSwitch>
+                </MaskToggleItem>
+                <MaskToggleItem>
+                  <MaskToggleLabel>Простые повреждения</MaskToggleLabel>
+                  <MaskToggleSwitch
+                    type="button"
+                    $active={showDamageMasks}
+                    onClick={() => setShowDamageMasks(!showDamageMasks)}
+                  >
+                    <MaskToggleSlider $active={showDamageMasks} />
+                  </MaskToggleSwitch>
+                </MaskToggleItem>
+                <MaskToggleItem>
+                  <MaskToggleLabel>Объекты</MaskToggleLabel>
+                  <MaskToggleSwitch
+                    type="button"
+                    $active={showObjectMasks}
+                    onClick={() => setShowObjectMasks(!showObjectMasks)}
+                  >
+                    <MaskToggleSlider $active={showObjectMasks} />
+                  </MaskToggleSwitch>
+                </MaskToggleItem>
+                <MaskToggleItem>
+                  <MaskToggleLabel>Моя маска</MaskToggleLabel>
+                  <MaskToggleSwitch
+                    type="button"
+                    $active={showCustomMask}
+                    onClick={() => setShowCustomMask(!showCustomMask)}
+                    disabled={!customMaskUrl}
+                  >
+                    <MaskToggleSlider $active={showCustomMask} />
+                  </MaskToggleSwitch>
+                </MaskToggleItem>
               </FilterButtons>
-              <PolygonSwitchContainer>
-                <PolygonSwitchLabel>Выделить объекты</PolygonSwitchLabel>
-                {(() => {
-                  const isDisabled = groupId === undefined || groupId === null || !imageUid || imageUid === ''
-                  if (isDisabled) {
-                    console.log('[PhotoEditorPage] Switch disabled because:', {
-                      groupId,
-                      imageUid,
-                      groupIdType: typeof groupId,
-                      imageUidType: typeof imageUid,
-                      locationState,
-                    })
-                  }
-                  return (
-                    <PolygonSwitch
-                      type="button"
-                      $active={showPolygons}
-                      onClick={() => setShowPolygons(!showPolygons)}
-                      disabled={isDisabled}
-                      title={isDisabled ? `Требуются groupId и imageUid для загрузки полигонов. groupId: ${groupId}, imageUid: ${imageUid}` : ''}
-                    >
-                      <PolygonSwitchSlider $active={showPolygons} />
-                    </PolygonSwitch>
-                  )
-                })()}
-              </PolygonSwitchContainer>
+              <PolygonSection>
+                <MaskToggleItem>
+                  <MaskToggleLabel>Выделить объекты</MaskToggleLabel>
+                  <MaskToggleSwitch
+                    type="button"
+                    $active={showPolygons}
+                    onClick={() => setShowPolygons(!showPolygons)}
+                    disabled={!polygonUrl}
+                  >
+                    <MaskToggleSlider $active={showPolygons} />
+                  </MaskToggleSwitch>
+                </MaskToggleItem>
+              </PolygonSection>
             </PanelContainer>
           </ToolsColumn>
         </EditorBody>
@@ -531,6 +742,9 @@ const EditorHeader = styled.header`
   background: #0e0c0a;
   border-radius: 15px;
   padding: 16px 32px;
+  height: 80px;
+  min-height: 80px;
+  max-height: 80px;
 `
 
 const BackButton = styled.button`
@@ -565,9 +779,9 @@ const HeaderTitle = styled.div`
 `
 
 const HeaderLogo = styled.img`
-  width: 140px;
-  height: auto;
-  object-fit: contain;
+  height: 50px;
+  width: auto;
+  display: block;
 `
 
 const EditorBody = styled.div`
@@ -712,28 +926,60 @@ const ProblemsTitle = styled.div`
 const FilterButtons = styled.div`
   display: flex;
   flex-direction: column;
+  gap: 16px;
+`
+
+const MaskToggleItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
 `
 
-const FilterButton = styled.button<{ $active: boolean }>`
-  width: 100%;
-  padding: 12px 16px;
-  border-radius: 12px;
-  border: 1px solid ${({ $active }) => ($active ? '#ffdc34' : 'rgba(255, 220, 52, 0.35)')};
-  background: ${({ $active }) => ($active ? 'rgba(255, 220, 52, 0.15)' : 'transparent')};
-  color: ${({ $active }) => ($active ? '#ffdc34' : '#cac8c6')};
+const MaskToggleLabel = styled.span`
+  color: #cac8c6;
   font-size: 14px;
   font-family: 'Inter', sans-serif;
   font-weight: 400;
-  cursor: pointer;
-  transition: all 150ms ease;
-  text-align: left;
+  flex: 1;
+`
 
-  &:hover {
-    border-color: #ffdc34;
-    background: rgba(255, 220, 52, 0.1);
+const MaskToggleSwitch = styled.button<{ $active: boolean; $disabled?: boolean }>`
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: ${({ $active, $disabled }) =>
+    $disabled ? '#3a3834' : $active ? '#ffdc34' : '#5a5854'};
+  border: none;
+  cursor: ${({ $disabled }) => ($disabled ? 'not-allowed' : 'pointer')};
+  transition: background 150ms ease;
+  flex-shrink: 0;
+  padding: 0;
+  outline: none;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.1);
   }
 `
+
+const MaskToggleSlider = styled.span<{ $active: boolean }>`
+  position: absolute;
+  top: 2px;
+  left: ${({ $active }) => ($active ? '22px' : '2px')};
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #0e0c0a;
+  transition: left 150ms ease;
+`
+
+const PolygonSection = styled.div`
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 220, 52, 0.1);
+`
+
 
 const ToolsStack = styled.div`
   display: flex;
@@ -926,10 +1172,15 @@ const SaveButton = styled.button`
   font-weight: 400;
   padding: 14px 0;
   cursor: pointer;
-  transition: transform 150ms ease;
+  transition: transform 150ms ease, opacity 150ms ease;
 
-  &:hover {
+  &:hover:not(:disabled) {
     transform: translateY(-2px);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   span {
@@ -998,55 +1249,4 @@ const ColorPickerButton = styled.button`
   }
 `
 
-const PolygonSwitchContainer = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 8px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 220, 52, 0.1);
-`
-
-const PolygonSwitchLabel = styled.span`
-  color: #cac8c6;
-  font-size: 14px;
-  font-family: 'Inter', sans-serif;
-  font-weight: 400;
-  flex: 1;
-`
-
-const PolygonSwitch = styled.button<{ $active: boolean }>`
-  position: relative;
-  width: 48px;
-  height: 24px;
-  border-radius: 12px;
-  border: 1px solid ${({ $active }) => ($active ? '#ffdc34' : 'rgba(255, 220, 52, 0.35)')};
-  background: ${({ $active }) => ($active ? 'rgba(255, 220, 52, 0.15)' : 'transparent')};
-  cursor: ${({ disabled }) => (disabled ? 'not-allowed' : 'pointer')};
-  transition: all 150ms ease;
-  padding: 0;
-  flex-shrink: 0;
-
-  &:hover:not(:disabled) {
-    border-color: #ffdc34;
-    background: rgba(255, 220, 52, 0.1);
-  }
-
-  &:disabled {
-    opacity: 0.4;
-  }
-`
-
-const PolygonSwitchSlider = styled.div<{ $active: boolean }>`
-  position: absolute;
-  top: 2px;
-  left: ${({ $active }) => ($active ? '26px' : '2px')};
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: ${({ $active }) => ($active ? '#ffdc34' : 'rgba(255, 220, 52, 0.5)')};
-  transition: left 150ms ease, background 150ms ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-`
 

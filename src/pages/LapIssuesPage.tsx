@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { Content } from '../components/Layout'
@@ -504,7 +504,30 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
   const { lapId } = useParams()
   const [searchParams] = useSearchParams()
   const [currentLap, setCurrentLap] = useState<Lap | null>(laps.find((lap) => lap.id === lapId) || null)
-  const [groupId, setGroupId] = useState<number | null>(null)
+  
+  // Восстанавливаем groupId из кеша сразу при монтировании
+  const initialGroupId = useMemo(() => {
+    if (!lapId) return null
+    const groupIdParam = searchParams.get('group_id')
+    if (groupIdParam) {
+      const parsed = Number.parseInt(groupIdParam, 10)
+      if (!Number.isNaN(parsed)) {
+        return parsed
+      }
+    }
+    // Пытаемся восстановить из кеша
+    const lastGroupKey = `lap-${lapId}-last-group`
+    const cachedGroupId = sessionStorage.getItem(lastGroupKey)
+    if (cachedGroupId) {
+      const parsed = Number.parseInt(cachedGroupId, 10)
+      if (!Number.isNaN(parsed)) {
+        return parsed
+      }
+    }
+    return null
+  }, [lapId, searchParams])
+  
+  const [groupId, setGroupId] = useState<number | null>(initialGroupId)
   const [isLapLoading, setIsLapLoading] = useState(true)
   const [isImagesLoading, setIsImagesLoading] = useState(false)
   const [imagesError, setImagesError] = useState<string | null>(null)
@@ -512,6 +535,41 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
   const [currentGroup, setCurrentGroup] = useState<Group | null>(null)
   const [selectedFilter, setSelectedFilter] = useState<string>('Все фото')
   const [allImages, setAllImages] = useState<ImageWithDetections[]>([])
+
+  // Восстанавливаем состояние фильтра из кеша при загрузке
+  useEffect(() => {
+    if (groupId && lapId) {
+      const cacheKey = `lap-${lapId}-group-${groupId}`
+      const cachedData = sessionStorage.getItem(cacheKey)
+      if (cachedData) {
+        try {
+          const parsed = JSON.parse(cachedData)
+          if (parsed.selectedFilter) {
+            setSelectedFilter(parsed.selectedFilter)
+          }
+        } catch {
+          // Игнорируем ошибки
+        }
+      }
+    }
+  }, [groupId, lapId])
+
+  // Сохраняем состояние фильтра в кеш при изменении
+  useEffect(() => {
+    if (groupId && lapId) {
+      const cacheKey = `lap-${lapId}-group-${groupId}`
+      const cachedData = sessionStorage.getItem(cacheKey)
+      if (cachedData) {
+        try {
+          const parsed = JSON.parse(cachedData)
+          parsed.selectedFilter = selectedFilter
+          sessionStorage.setItem(cacheKey, JSON.stringify(parsed))
+        } catch {
+          // Игнорируем ошибки
+        }
+      }
+    }
+  }, [selectedFilter, groupId, lapId])
 
   const getTitle = () => {
     if (isLapLoading) return 'Загрузка ЛЭП...'
@@ -537,24 +595,45 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
       try {
         // Проверяем query параметр group_id
         const groupIdParam = searchParams.get('group_id')
-        console.log('[LapIssuesPage] Extracting groupId from query params:', {
-          groupIdParam,
-          allSearchParams: Object.fromEntries(searchParams.entries()),
-        })
+        
+        let targetGroupId: number | null = null
         
         if (groupIdParam) {
           const parsedGroupId = Number.parseInt(groupIdParam, 10)
           if (!Number.isNaN(parsedGroupId)) {
-            console.log('[LapIssuesPage] Setting groupId to:', parsedGroupId)
-            setGroupId(parsedGroupId)
-            setIsLapLoading(false)
-            // Все равно загружаем информацию о ЛЭП
-            const data = await getLaps()
-            const transformedLaps = transformLapsData(data)
-            const foundLap = transformedLaps.find((lap) => lap.id === lapId) || null
-            setCurrentLap(foundLap)
-            return
+            targetGroupId = parsedGroupId
+            // Сохраняем groupId в sessionStorage для восстановления при возврате назад
+            const lastGroupKey = `lap-${lapId}-last-group`
+            sessionStorage.setItem(lastGroupKey, parsedGroupId.toString())
+            setGroupId(parsedGroupId) // Обновляем сразу
           }
+        } else if (groupId) {
+          // Если groupId уже восстановлен из кеша при монтировании, используем его
+          targetGroupId = groupId
+          // Сохраняем в кеш для будущего использования
+          const lastGroupKey = `lap-${lapId}-last-group`
+          sessionStorage.setItem(lastGroupKey, groupId.toString())
+        } else {
+          // Если нет query параметра и нет в начальном состоянии, пытаемся восстановить из кеша
+          const lastGroupKey = `lap-${lapId}-last-group`
+          const cachedGroupId = sessionStorage.getItem(lastGroupKey)
+          if (cachedGroupId) {
+            const parsedGroupId = Number.parseInt(cachedGroupId, 10)
+            if (!Number.isNaN(parsedGroupId)) {
+              targetGroupId = parsedGroupId
+              setGroupId(parsedGroupId) // Обновляем сразу
+            }
+          }
+        }
+        
+        if (targetGroupId) {
+          setIsLapLoading(false)
+          // Все равно загружаем информацию о ЛЭП
+          const data = await getLaps()
+          const transformedLaps = transformLapsData(data)
+          const foundLap = transformedLaps.find((lap) => lap.id === lapId) || null
+          setCurrentLap(foundLap)
+          return
         }
 
         // Если group_id не указан, используем логику по умолчанию
@@ -576,19 +655,53 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
         }
 
         setGroupId(foundGroupId)
-      } catch (error) {
-        console.error('[LapIssuesPage] Failed to load lap info', error)
+      } catch {
+        // Игнорируем ошибки загрузки
       } finally {
         setIsLapLoading(false)
       }
     }
 
     void loadLapAndGroup()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lapId, searchParams])
 
   useEffect(() => {
     const loadImages = async () => {
       if (!groupId) return
+
+      // Проверяем кеш в sessionStorage ПЕРЕД установкой состояния загрузки
+      const cacheKey = `lap-${lapId}-group-${groupId}`
+      const cachedData = sessionStorage.getItem(cacheKey)
+      
+      if (cachedData) {
+        try {
+          const parsed = JSON.parse(cachedData)
+          // Проверяем, что кеш не слишком старый (например, не старше 5 минут)
+          const cacheAge = Date.now() - (parsed.timestamp || 0)
+          const MAX_CACHE_AGE = 5 * 60 * 1000 // 5 минут
+          
+          if (cacheAge < MAX_CACHE_AGE && parsed.groupData && parsed.allImages) {
+            setGroupData(parsed.groupData)
+            setAllImages(parsed.allImages)
+            if (parsed.currentGroup) {
+              setCurrentGroup(parsed.currentGroup)
+            }
+            if (parsed.selectedFilter) {
+              setSelectedFilter(parsed.selectedFilter)
+            }
+            setIsImagesLoading(false)
+            setImagesError(null)
+            return // Выходим, не делая запрос
+          } else {
+            sessionStorage.removeItem(cacheKey) // Удаляем устаревший кеш
+          }
+        } catch {
+          sessionStorage.removeItem(cacheKey) // Удаляем поврежденный кеш
+        }
+      }
+
+      // Если кеша нет или он невалиден, загружаем данные
       setIsImagesLoading(true)
       setImagesError(null)
 
@@ -601,16 +714,26 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
             ? Math.max(...detections.map((d) => d.damage_level))
             : 0
           return {
-            imageUid,
-            detections,
+          imageUid,
+          detections,
             maxDamageLevel,
           }
         })
         // Сортируем по максимальному damage_level от большего к меньшему
         mappedImages.sort((a, b) => b.maxDamageLevel - a.maxDamageLevel)
         setAllImages(mappedImages)
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Не удалось загрузить фотографии'
+
+        // Сохраняем в кеш (currentGroup будет добавлен позже в loadGroupInfo)
+        const cacheData = {
+          groupData: data,
+          allImages: mappedImages,
+          currentGroup: null,
+          selectedFilter: selectedFilter,
+          timestamp: Date.now(),
+        }
+        sessionStorage.setItem(cacheKey, JSON.stringify(cacheData))
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Не удалось загрузить фотографии'
         setImagesError(message)
       } finally {
         setIsImagesLoading(false)
@@ -618,20 +741,53 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
     }
 
     void loadImages()
-  }, [groupId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId, lapId])
 
   useEffect(() => {
     const loadGroupInfo = async () => {
       if (!groupId || !lapId) return
 
+      // Проверяем кеш
+      const cacheKey = `lap-${lapId}-group-${groupId}`
+      const cachedData = sessionStorage.getItem(cacheKey)
+      
+      if (cachedData) {
+        try {
+          const parsed = JSON.parse(cachedData)
+          // Проверяем возраст кеша
+          const cacheAge = Date.now() - (parsed.timestamp || 0)
+          const MAX_CACHE_AGE = 5 * 60 * 1000 // 5 минут
+          
+          if (cacheAge < MAX_CACHE_AGE && parsed.currentGroup) {
+            setCurrentGroup(parsed.currentGroup)
+            return // Не делаем запрос, если данные в кеше
+          }
+        } catch {
+          // Продолжаем загрузку, если кеш поврежден
+        }
+      }
+
+      // Загружаем только если кеша нет или он устарел
       try {
         const groups = await getGroupsByLap(lapId)
         const foundGroup = groups.find((g) => g.id === groupId)
         if (foundGroup) {
           setCurrentGroup(foundGroup)
+          // Обновляем кеш с информацией о группе
+          if (cachedData) {
+            try {
+              const parsed = JSON.parse(cachedData)
+              parsed.currentGroup = foundGroup
+              parsed.timestamp = Date.now()
+              sessionStorage.setItem(cacheKey, JSON.stringify(parsed))
+            } catch {
+              // Игнорируем ошибки обновления кеша
+            }
+          }
         }
-      } catch (error) {
-        console.error('[LapIssuesPage] Failed to load group info:', error)
+      } catch {
+        // Игнорируем ошибки загрузки
       }
     }
 
@@ -750,13 +906,13 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
               ))
             ) : (
               metrics.map((metric) => (
-                <MetricItem key={metric.label}>
-                  <MetricIcon src={metric.icon} alt="" />
-                  <MetricTextGroup>
-                    <MetricLabel>{metric.label}</MetricLabel>
-                    <MetricValue>{metric.value}</MetricValue>
-                  </MetricTextGroup>
-                </MetricItem>
+              <MetricItem key={metric.label}>
+                <MetricIcon src={metric.icon} alt="" />
+                <MetricTextGroup>
+                  <MetricLabel>{metric.label}</MetricLabel>
+                  <MetricValue>{metric.value}</MetricValue>
+                </MetricTextGroup>
+              </MetricItem>
               ))
             )}
           </MetricsContainer>
@@ -793,27 +949,37 @@ export function LapIssuesPage({ laps }: LapIssuesPageProps) {
                   detections={image.detections}
                   maxDamageLevel={image.maxDamageLevel}
                   onOpenEditor={() => {
-                    console.log('[LapIssuesPage] Opening editor with:', {
-                      groupId,
-                      imageUid: image.imageUid,
-                      hasDetections: image.detections.length > 0,
-                    })
-                    if (!groupId) {
-                      console.error('[LapIssuesPage] groupId is null, cannot navigate to editor')
-                      return
+                    if (!groupId || !image.imageUid) return
+                    
+                    // Обновляем кеш перед переходом, чтобы сохранить текущее состояние
+                    if (groupId && lapId && groupData && allImages.length > 0) {
+                      const cacheKey = `lap-${lapId}-group-${groupId}`
+                      const lastGroupKey = `lap-${lapId}-last-group`
+                      
+                      // Сохраняем groupId для восстановления при возврате назад
+                      sessionStorage.setItem(lastGroupKey, groupId.toString())
+                      
+                      const cacheData = {
+                        groupData,
+                        allImages,
+                        currentGroup,
+                        selectedFilter,
+                        timestamp: Date.now(),
+                      }
+                      try {
+                        sessionStorage.setItem(cacheKey, JSON.stringify(cacheData))
+                      } catch {
+                        // Игнорируем ошибки сохранения кеша
+                      }
                     }
-                    if (!image.imageUid) {
-                      console.error('[LapIssuesPage] imageUid is missing, cannot navigate to editor')
-                      return
-                    }
+
                     const state = {
-                      imageUrl: `${API_BASE_URL}/image/${groupId}/${image.imageUid}.jpeg`,
-                      maskUrls: image.detections.map((detection) => `${MASK_BASE_URL}/mask/${detection.id}.png`),
-                      detections: image.detections,
+                        imageUrl: `${API_BASE_URL}/image/${groupId}/${image.imageUid}.jpeg`,
+                        maskUrls: image.detections.map((detection) => `${MASK_BASE_URL}/mask/${detection.id}.png`),
+                        detections: image.detections,
                       groupId: groupId,
                       imageUid: image.imageUid,
-                    }
-                    console.log('[LapIssuesPage] Navigating to editor with state:', state)
+                  }
                     navigate('/editor', { state })
                   }}
                 />
